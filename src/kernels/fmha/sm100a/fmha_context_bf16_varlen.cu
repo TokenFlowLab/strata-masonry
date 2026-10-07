@@ -1,4 +1,4 @@
-// fmha_context_bf16_varlen.cu -- K2 FMHA context BF16, sm_100a. Variable-seqlen (varlen), causal.
+// fmha_context_bf16_varlen.cu -- FMHA context BF16, sm_100a. Variable-seqlen (varlen), causal.
 //
 // Persistent 16-warp context kernel, block-composed: each warp dispatches into shared blocks/
 // bodies. varlen packs samples densely by cu_seqlens, so three
@@ -180,7 +180,7 @@ fmha_context_bf16_persistent_kernel(const __grid_constant__ CUtensorMap tmap_q,
   }
   else if (warp_id == W_EPI) {
     // Store runs on the 4 corr warps (128-thread register STG); a dedicated 32-thread epi store
-    // measured 40% slower (und 237 vs 142), so W_EPI just idles as a CLC consumer here.
+    // is ~40% slower, so W_EPI just idles as a CLC consumer here.
     if constexpr (USE_CLC) {
       idle_warp_blackwell_ntiles_2sm_bf16<
           /*IDLE_REG_BUDGET=*/56, /*CLUSTER_SHAPE_M=*/1, /*CLUSTER_SHAPE_N=*/1,
@@ -222,8 +222,8 @@ fmha_context_bf16_persistent_kernel(const __grid_constant__ CUtensorMap tmap_q,
 }
 
 // ====================== driver ============================
-// Input fill modes -- MUST match kernels/gemm/sm100a/dense_gemm_bf16.cu and
-// fa4_extract/fa4_bench_matrix.py so ours vs FA4 see BITWISE-IDENTICAL inputs (input values
+// Input fill modes -- MUST match kernels/gemm/sm100a/dense_gemm_bf16.cu and any FA4 comparison
+// so both see BITWISE-IDENTICAL inputs (input values
 // swing tensor-core power -> clock -> timing by up to ~40%). FILL env (default 2):
 //   1=[-0.5,0.5)/256  2=[-1,1)/2048  3=const 1.0  4=int{-3..3}. Seeds 11/22/33 for Q/K/V.
 static void fillr(__nv_bfloat16 *h, long n, unsigned s) {
@@ -326,7 +326,7 @@ static double run(const Sh &sh, bool verify) {
     mqt = std::max(mqt, (sh.sl[i] + tpc - 1) / tpc); // packed-M tiles (q_tile_per_cta tokens)
   constexpr bool USE_CLC = true, Q_RASTER = !MHA;
   constexpr bool SPLIT_P = true;
-  constexpr bool LPT = true;   // heaviest causal q-tile first: +3.6% on UND
+  constexpr bool LPT = true;   // heaviest causal q-tile first
   size_t smem =
       (size_t)2 * Q_TILE_BYTES + NUM_KV_STAGES * K_TILE_BYTES // shared K/V ring
       + (size_t)M_TILE * HEAD_DIM * sizeof(__nv_bfloat16) // sO epilogue staging [M_TILE][HEAD_DIM]
@@ -429,7 +429,7 @@ static std::vector<int> und() {
 int main() {
   CUDA_CHECK(cudaFree(0));
   CUDA_CHECK(cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 64 * 1024 * 1024));
-  printf("K2 fmha_context_bf16 persistent (warp-spec, 2 M-tiles) "
+  printf("fmha_context_bf16 persistent (warp-spec, 2 M-tiles) "
          "sm_100a\n=====================================\n");
   // Default: GQA varlen (und = target shape). MHA=1 -> uniform MHA (HQ==HK), env BATCH/SEQLEN/
   // HEADS. CAUSAL (default 1): triangular causal vs full. NOVERIFY=1 skips the CPU ref.

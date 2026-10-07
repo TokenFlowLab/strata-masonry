@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 51_atom_shared_test.cu -- SMEM counter accumulates 32 adds.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +16,7 @@
 #include "51_atom_shared.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -33,7 +32,6 @@ __global__ void k_atom(uint32_t* gout) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_atom<<<1, 32>>>(d);
@@ -46,7 +44,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: atom.shared atomics (CTA-scope) -- verify correctness + timing
@@ -92,7 +90,6 @@ __global__ void atom_shared_cluster_compile_only(uint32_t* out) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     const int BLOCKS = 4;
     const int THREADS = 256;
@@ -148,7 +145,7 @@ static int run_theirs() {
 
 
 // =============================================================================
-// MED: shared cas.b32, min/max u32 on shared
+// shared cas.b32, min/max u32 on shared
 // =============================================================================
 
 __global__ void k_atom_shared_cas(uint32_t* out) {
@@ -234,7 +231,7 @@ static int run_med() {
   }
 
   if (ok) { PASS(); return 0; }
-  else { FAIL("shared MED subtest failed"); return 1; }
+  else { FAIL("shared cas/min/max subtest failed"); return 1; }
 }
 
 int main() {

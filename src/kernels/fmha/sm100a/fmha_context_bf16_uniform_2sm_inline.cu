@@ -1,4 +1,4 @@
-// fmha_context_bf16_uniform_2sm_inline.cu -- K2 FMHA context BF16, sm_100a.
+// fmha_context_bf16_uniform_2sm_inline.cu -- FMHA context BF16, sm_100a.
 //
 // 2-CTA (cta_group::2) sibling of fmha_context_bf16_uniform_inline.cu: same feature set
 // (GQA/MHA via MHA; full/causal via IS_CAUSAL; USE_CLC / Q_RASTER scheduler), but a 2SM cluster
@@ -25,9 +25,7 @@
 //       softmax inc<176> (x8) + correction dec<88> (x4) + four single warps dec<72> (x4)
 //       = 32 * (8*176 + 4*88 + 4*72) = 32 * 2048 = 65536.
 //     WARP_PROF: the softmax warp sits at its cap, so wp_begin/wp_end there can fault as an illegal
-//     instruction; raise the budget before profiling. (The old "single ~R26 / corr ~R77 / softmax
-//     ~R186" usage figures were measured under the 192/80/48 ladder and no longer apply -- ~R186
-//     does not even fit a 176 budget.)
+//     instruction; raise the budget before profiling.
 //   - TMEM: each M-tile needs S + O = K_TILE + HEAD_DIM cols of the 512, so
 //     M_TILES_PER_CTA <= 512 / (K_TILE + HEAD_DIM) = 2 for 128/128 (adjacent q-tiles of the
 //     SAME sequence).
@@ -125,8 +123,8 @@ constexpr int SPLIT_P_ATOM = SPLIT_P_N / 16;            // 6 (BMM2 atom at the s
 constexpr int SPLIT_P_COL  = SPLIT_P_N / 2;     // 48 (u32 P cols written before the empty_bar_spo signal)
 constexpr int EX2_FRG_PAIRS = 16;          // 32 elts / fragment = 16 pairs
 constexpr int EX2_FRG_CNT   = K_TILE / 32; // = 4 for K_TILE=128
-// EX2_FREQ=10 uses more FFMA-emu than 1CTA's 16. Measured +1.2-1.8% (8~=10 plateau, 12~=16 lower):
-// the 2SM softmax is MUFU/SFU-bound, so shifting exp2 off MUFU onto FMA wins.
+// EX2_FREQ=10 uses more FFMA-emu than 1CTA's 16: the 2SM softmax is MUFU/SFU-bound, so
+// shifting exp2 off MUFU onto FMA wins.
 constexpr int EX2_FREQ      = 10;          // FA4-2CTA ex2_emu_freq
 constexpr int EX2_RES       = 4;           // FA4 ex2_emu_res (default)
 constexpr int EX2_START_FRG = 1;           // FA4-2CTA ex2_emu_start_frg (fragment 0 pure-HW)
@@ -235,11 +233,11 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
       (reinterpret_cast<uintptr_t>(clc_empty + CLC_STAGES) + 15u) & ~uintptr_t(15u));
   uint32_t* tmem_slot = clc_response + CLC_STAGES * 4;
   float* alpha_and_l_smem = reinterpret_cast<float*>(tmem_slot + 2);
-  // NOTE: 1CTA's wake-granule isolation of empty_bar_alpha_and_l does NOT port here -- measured it
-  // INVERTS on 2SM (r1 +10 but r2 -25.5, r3 -27.5), losing the throughput rows 2SM exists for. Left out.
+  // NOTE: 1CTA's wake-granule isolation of empty_bar_alpha_and_l is not used here: on 2SM it
+  // slows the throughput shapes 2SM exists for.
 
-  // Keep the array. 1CTA computes sKV + kv_stage*BYTES on the fly (no LDL, +11 r2/+20 r4: it is
-  // scoreboard-bound); 2SM has wait slack so that form is off the critical path (measured r2 -3/r4 -8).
+  // Keep the array. 1CTA computes sKV + kv_stage*BYTES on the fly (no LDL: it is
+  // scoreboard-bound); 2SM has wait slack so that form is off the critical path and slower here.
   uint8_t* smem_kv[NUM_KV_STAGES];
   for (int s = 0; s < NUM_KV_STAGES; ++s) smem_kv[s] = sKV + s * KV_SLOT_BYTES;
 
@@ -757,7 +755,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         wp_begin(wpc, WP_CORR_WAIT);
         if constexpr (FULL_NAMED_BAR) full_bar_wait(i, corr_warp_id);
         else mbarrier_wait_parity_suspend(smem_ptr_u32(&full_bar_alpha[i]), alpha_ph.get_phase());
-        // FA4 cross-stage deferral (fa4_gen correction_loop): prologue releases only slot 0.
+        // FA4 cross-stage deferral (FA4 correction_loop): prologue releases only slot 0.
         if constexpr (SOFTMAX_THROTTLE) {
           if (i == 0) mbarrier_arrive(smem_ptr_u32(&empty_bar_alpha_and_l[0]));
         } else {
@@ -823,7 +821,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         wp_begin(wpc, WP_CORR_EPI);
         const int corr_tid = corr_warp_id * 32 + lane;
         float l = alpha_and_l_smem[i * M_TILE + corr_tid];
-        // epilogue releases same-stage, early (FA4 fa4_gen.py:2041)
+        // epilogue releases same-stage, early (FA4)
         mbarrier_arrive(smem_ptr_u32(&empty_bar_alpha_and_l[i]));
         float inv_l = (l > 0.f) ? rcp_approx_ftz_f32(l) : 0.f;
         const float2 inv_l2 = f32x2_splat(inv_l);
@@ -909,7 +907,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
       wp_end(wpc, WP_SM_WAIT_SCALE);
       float* const alpha_slot = &alpha_and_l_smem[m_tile * M_TILE + row_in_m_tile];
       // FA4 softmax_loop: peeled masked steps + unmasked steady loop (compile-time step specializations).
-      // CAUSAL: each softmax warp masks every tile from k=0 through its own diagonal (see fmha-fill-degenerate).
+      // CAUSAL: each softmax warp masks every tile from k=0 through its own diagonal.
       auto softmax_step = [&](int k, auto masked_c, auto is_first_c) {
         constexpr bool MASKED   = decltype(masked_c)::value;
         constexpr bool IS_FIRST = decltype(is_first_c)::value;
@@ -1239,9 +1237,7 @@ static double run(const Sh& sh, bool verify) {
   if (USE_CLC) {
     nblk = total_workitems_host * 2;
   } else {
-    // FA4 form (ncu LaunchStats on the real run: Grid=152=numSM, Cluster 2, Waves/SM=1):
-    // PERSISTENT, one CTA per SM, grid-stride over work items. (An earlier "non-persistent"
-    // reading came from trace metadata, not the launch -- corrected here.)
+    // FA4 form: PERSISTENT, one CTA per SM, grid-stride over work items.
     nblk = std::min(total_work, numSM);
     nblk -= (nblk & 1);                        // 2SM: grid.x must be a multiple of cluster.x = 2
   }
@@ -1343,7 +1339,7 @@ static double run(const Sh& sh, bool verify) {
 int main() {
   CUDA_CHECK(cudaFree(0));
   CUDA_CHECK(cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 64 * 1024 * 1024));
-  printf("K2 fmha_context_bf16 GEN (warp-spec, 2 M-tiles) sm_100a\n"
+  printf("fmha_context_bf16 GEN (warp-spec, 2 M-tiles) sm_100a\n"
          "=====================================\n");
 
   Sh s{};

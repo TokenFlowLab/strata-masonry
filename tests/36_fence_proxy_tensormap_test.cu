@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 36_fence_proxy_tensormap_test.cu -- compile smoke.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "36_fence_proxy_tensormap.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -29,7 +28,6 @@ __global__ void k_f(CUtensorMap* desc) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   float* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 64 * 64 * 4));
   CUtensorMap desc;
   CUDA_CHECK(make_tma_2d_tiled(&desc, d, 64, 64, 32, 32, sizeof(float),
@@ -46,7 +44,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: fence.proxy.tensormap -- compile + PTX verification
@@ -59,7 +57,7 @@ __global__ void fence_tensormap_kernel() {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */ printf("36_fence_proxy_tensormap: compiled.\n"); PASS(); return 0; }
+  printf("36_fence_proxy_tensormap: compiled.\n"); PASS(); return 0; }
 
 
 int main() {

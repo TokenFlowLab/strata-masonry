@@ -1,48 +1,46 @@
-// block_sparse_bwd_bf16_blk64_2pv.cu -- long-sequence fork of the
-// two-pass blk64 kernel: pass 2 is an
-// occupancy-preserving ws-TS ITEM-PAIRED kernel. The original 2pv paired
-// two ranks per step and double-buffered D, requiring 224KB SMEM / 384
-// TMEM columns and therefore one CTA/SM. This revision uses one rank per
+// block_sparse_bwd_bf16_blk64_2pv.cu -- two-pass blk64 kernel for long
+// sequences: pass 2 is an
+// occupancy-preserving ws-TS ITEM-PAIRED kernel. Pairing two ranks per step
+// with a double-buffered D would need 224KB SMEM / 384
+// TMEM columns and therefore one CTA/SM. This kernel uses one rank per
 // step, a two-stage ring, one persistent D, and two 32-column A buffers:
 // 112KB SMEM / 192 live TMEM columns (256 allocated), hence two CTAs/SM.
 // Its 16KB output image is split between the two items; both item stores
-// run concurrently for each 64-column dimension half. Deltas vs 2pq:
+// run concurrently for each 64-column dimension half. Long-path specifics:
 //   - the long-path preprocess emits a THIRD transposed slab, K^T
 //     ([H*hd, tokens]), which paired pass 2 reads (tmap_kt);
 //   - pass 2: 7 warps, two q64 items per CTA iteration in lockstep
 //     (uniform topk), 4 ws-TS m64n256 atoms per one-rank step -- see the
 //     header above vsa_bwd_pass2_kernel for the full design.
-// Sustained shared-input A/B: ~6-7% faster than 2pq at S=32k/65k/131k.
-// This translation unit also retains 2pq's plain-m128 pass2 and dispatches
+// This translation unit also has a plain-m128 single-item pass2 and dispatches
 // to it below S=32768, where item pairing is ~2-3% slower. The specialized
 // short preprocess skips the otherwise-unused K^T slab.
-// Pass 1 is byte-identical to 2pq/2p. The two-pass rationale (from 2p):
+// The two-pass rationale:
 // the measured cp.reduce wall (48 GB/s/SM, 6.5 TB/s aggregate) makes any
 // fp32 dqaccum RMW drain alone slower than the whole blk128 kernel --
 // so dQ is computed with ZERO RMW anywhere:
-//   Pass 1 (kv-stationary main kernel = lean minus the dQ path): dK/dV as
-//   in lean, plus each (q64, kv64) dS^T tile (8KB bf16, xor-swizzled MMA-A
+//   Pass 1 (kv-stationary main kernel without the dQ path): dK/dV,
+//   plus each (q64, kv64) dS^T tile (8KB bf16, xor-swizzled MMA-A
 //   image) is plain-STORED to ds_buf[(bh*nq + q64)*topk + rank] (rank =
 //   the kv block's position in the q-block's own topk list, carried in
 //   bits 16+ of the k2q entries).
 //   Pass 2 gathers those tiles and reduces dQ per q64 item pair; no
 //   dqaccum, no postprocess. ds_buf = pairs x 8KB (67 GB at S=131k).
 //
-// Pass 1 design (deltas vs the lean header, which still applies for the
-// ws-atom tiling, T-slab loads, and softmax/epilogue):
+// Pass 1 design:
 //   - CLC-persistent (sched warp 14 + per-warp BwdItemSource); item = flat
 //     bh * nb64 + kv_block, chunkable via item_base/item_count.
 //   - Ring stage-pair roles ALTERNATE per global quad G: QT pair =
 //     (G&1)?{2,3}:{0,1}, dOT the other. QT(G) reuses the pair dV(G-1)
-//     freed EARLY, taking that TMA off the dK -> S^T critical cycle
-//     (pass1-only 888 -> 1089 TF @32k). Per-stage parity counters on both
+//     freed EARLY, taking that TMA off the dK -> S^T critical cycle.
+//     Per-stage parity counters on both
 //     sides; do not reintroduce a rotating stage tracker here.
 //   - Item hand-off gates: KV_FREE (commit after the item's last quad --
 //     S^T is the last K reader) before the next item's K/V piggyback;
 //     EPI_DONE (256)
 //     before the next item's first fills (the epilogue bounce = the LAST
 //     quad's dOT pair) and before the MMA's next dV zero-init.
-//   - dS-store warp 0 (old reduce role): per quad, waits DST_READY, one
+//   - dS-store warp 0: per quad, waits DST_READY, one
 //     8KB bulk S2G per REAL entry (pads skipped: their (id, rank) would
 //     alias the clamped last entry and overwrite its tile), then
 //     wait_group_read<0>; the compute lane never touches the images.
@@ -55,8 +53,7 @@
 // Same harness contract as the sibling files: BLOCK=64 native,
 // pair_offset/pair_union = per-kv64 q-lists (rank<<16 | q64 id), timed
 // path = pre + pass1 + pass2, one stream, in head chunks: the dS buffer
-// holds one chunk (the fewest chunks that fit device memory; 2026-09-15,
-// was one buffer for all heads, which capped the kernel at S = 131k),
+// holds one chunk (the fewest chunks that fit device memory),
 // TFLOPS = 2.5 * 4 * D * (B*H*nb*topk*64^2) / t.
 //
 // Env knobs: LOAD_NPY, BLOCK=64 (GPU path requires 64), SHAPE/BATCH/HEADS/
@@ -531,7 +528,7 @@ vsa_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_k64,   // box (64,6
     // S^T/dP^T: two ws n128 tb=1 issues over the T-slab slots read
     // MN-major (SBO=1024 walks k = hd rows; LBO=16384 hops region h). Slot
     // u's two regions land in D cols [64u,+64) -- bit-identical to the
-    // native dual S layout (ws_probe probe 5). Zero-init every quad. NO
+    // native dual S layout. Zero-init every quad. NO
     // ring-empty commits here: the slots stay full for dK (QT) / dV (dOT).
     auto issue_st_pair = [&](uint32_t t_dst, uint64_t desc_a_units,
                              int commit_bar, int stage0) {
@@ -982,7 +979,7 @@ vsa_bwd_preprocess_kernel(const __nv_bfloat16* __restrict__ q,
   // Delta is out: pass1 may set up while the slabs are written (its wait covers them).
   if constexpr (KERNEL_PDL) griddepcontrol_launch_dependents();
   // Q^T / dO^T / K^T via an SMEM-staged transpose: uint4 on both global
-  // sides (the old form wrote 2B scalars -- issue-bound). Stage [128 tok
+  // sides (2B scalar stores are issue-bound). Stage [128 tok
   // x 128 hd] as sT[d][t] (the +2-token row pad de-conflicts the SMEM
   // banks on the transposed read-out), then each thread streams 8-token
   // uint4 rows of the output slab.
@@ -1092,10 +1089,10 @@ struct P2ItemSource {
 // Pass 2, occupancy-preserving ws-TS ITEM-PAIRED form: each CTA runs TWO
 // q64 items in lockstep (uniform topk). Per step = 1 rank x 2 items: 4
 // ws-TS m64n256 atoms; lane-half h of D = item h's dQ[64 x 128]
-// (independent per-half gemms, ws_probe section 3). A' = the dS tiles
+// (independent per-half gemms). A' = the dS tiles
 // TRANSPOSED to [q][kv] and bf16-packed into TMEM by the 4 stage warps
-// (subpartition-locked lane bands); B = K^T tiles from the kt slab in the
-// probe's slot/region layout: one 32KB slot = rank j, region h
+// (subpartition-locked lane bands); B = K^T tiles from the kt slab in a
+// slot/region layout: one 32KB slot = rank j, region h
 // (+16KB) = item h. dQ accumulates in TMEM across the whole list
 // in one persistent 128-column allocation. A' ping-pongs at 32 columns.
 // 7 warps: 0-3 stage + epilogue, 4 load, 5 mma, 6 sched. The 112KB
@@ -1423,14 +1420,14 @@ vsa_bwd_pass2_kernel(const __grid_constant__ CUtensorMap tmap_kt,   // K^T slab 
   }
 }
 
-// Short-sequence pass2 retained from 2pq.  Its single-item plain-m128 path
+// Short-sequence pass2.  Its single-item plain-m128 path
 // avoids the fixed item-pairing/K^T cost that dominates below S=32768.
 namespace short_p2 {
 // ---------------------------------------------------------------------------
 // Pass 2: q-stationary dQ. One item per (bh, q64 block): walk the block's
 // OWN topk list in steps of P2_QB kv64 blocks; per step, one bulk load of
 // the rank-contiguous dS^T tiles + a per-block K gather; dQ(64,128) +=
-// dS @ K as plain m128 ta/tb atoms (the proven lean-dQ form: A = stored
+// dS @ K as plain m128 ta/tb atoms (A = stored
 // dS^T image, ta=1, with A rows 64-127 contracting the NEXT tile -- never
 // read back; B = K MN-major, tb=1). dQ accumulates in TMEM across the
 // whole list (double-buffered per item), epilogue scales by sm_scale and
@@ -1612,7 +1609,7 @@ vsa_bwd_pass2_kernel(const __grid_constant__ CUtensorMap tmap_k64,
     // MMA warp: dQ(item) += sum_j sum_b dS_b @ K_b, double-buffered D.
     const uint32_t lead = elect_one_sync() ? 1u : 0u;
     constexpr uint32_t K16_MN = (uint32_t)((16 * SUB * 2) >> 4);
-    // Proven lean dQ form (Layout D, M=128): rows 64-127 contract the
+    // dQ form (Layout D, M=128): rows 64-127 contract the
     // bytes past the 8KB slot (the next stage's tile, or the K region at
     // the last stage) -- garbage, never read back: epi t2rs lanes 0-63.
     const uint32_t idesc_dq = make_idesc_bf16_f32(128, HEAD_DIM, true, true);
@@ -2302,7 +2299,7 @@ static void run(const Sh& sh) {
     snprintf(p, sizeof p, "/lse_S%d_blk%d.npy", S, BLOCK);
     file_M = npy_load_vec<float>(std::string(load_npy) + p);
     if (o_bits.size() != hO.size() || file_M.size() != hM.size()) {
-      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun gen_inputs.py\n");
+      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun block_sparse_bf16_gen_inputs.py\n");
       exit(1);
     }
     file_O.resize(o_bits.size());
@@ -2545,8 +2542,8 @@ static void run(const Sh& sh) {
         npy_save_f32(prefix + "_dv.npy", gdv.data(), {tq, (long)H, (long)hd});
       }
       // dq gate 8e-3: the CPU-ref-vs-torch-fp32 noise floor from the
-      // production bf16 quantization points is ~1.9-2.7e-3 (oracle_bwd.py,
-      // 2026-08-25), GPU-vs-CPU can legitimately reach ~2x that, and the
+      // production bf16 quantization points is ~1.9-2.7e-3, GPU-vs-CPU can
+      // legitimately reach ~2x that, and the
       // bf16-rounded dq output adds its own rounding on top.
       if (run_cpu) {
         const double rq_gate = 8e-3;
@@ -2644,7 +2641,7 @@ int main(int argc, char** argv) {
       fprintf(stderr, "Invalid tile64 benchmark shape\n");
       return 1;
     }
-    if (!getenv("LOAD_NPY")) setenv("LOAD_NPY", "../sparse/inputs", 0);
+    if (!getenv("LOAD_NPY")) setenv("LOAD_NPY", "inputs", 0);
     setenv("BENCH_WARMUP", "5", 1);
     if (argc == 6) setenv("BENCH_ITERS", argv[5], 1);
     setenv("VSA_BENCH_CLI", "1", 1);

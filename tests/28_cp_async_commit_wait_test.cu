@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 28_cp_async_commit_wait_test.cu -- compile smoke (covered end-to-end by #26, #27).
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "28_cp_async_commit_wait.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -31,7 +30,6 @@ __global__ void k_cw() {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   k_cw<<<1, 32>>>();
   CUDA_CHECK(cudaDeviceSynchronize());
   printf("cp.async.commit/wait_group/wait_all : compile OK\n");
@@ -39,7 +37,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: cp.async.commit_group / wait_group -- round-trip + timing
@@ -142,7 +140,6 @@ static bool check_round_trip(const char* label,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

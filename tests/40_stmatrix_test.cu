@@ -3,8 +3,7 @@
 // SMEM. Each of the 32 lanes supplies one b32 register holding two b16
 // values, and a row address (one row per 4 lanes).
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,7 +20,7 @@
 #include "40_stmatrix.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -41,7 +40,6 @@ __global__ void k_st(uint32_t* gout) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 8 * 4 * 4));
   CUDA_CHECK(cudaMemset(d, 0, 8 * 4 * 4));
   k_st<<<1, 32>>>(d);
@@ -56,7 +54,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: stmatrix -- warp-collective register -> SMEM matrix store.
@@ -210,7 +208,6 @@ __global__ void kernel_pattern_x4(uint32_t* __restrict__ gout) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

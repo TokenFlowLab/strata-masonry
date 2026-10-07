@@ -11,7 +11,7 @@ Canonical config (Wan 2.1 T2V 1.3B causal):
 
 Files written under <outdir>/:
   q_L{L}.npy k_L{L}.npy v_L{L}.npy   dtype uint16 (raw bf16 bits), shape [L, H, D]
-  plan_L{L}.json                     the CausalTrainAttentionPlan scalar params
+  plan_L{L}.json                     the scalar attention-plan params
 
 Requires numpy and torch.
 Run: python3 block_causal_sink_bf16_gen_inputs.py --outdir inputs            (blockwise)

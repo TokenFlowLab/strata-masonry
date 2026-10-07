@@ -2,8 +2,7 @@
 // 32_mbarrier_arrive_drop_test.cu -- one warp arrive_drops, subsequent phases
 // complete with N-1 participants.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,7 +23,7 @@
 #include "33_mbarrier_try_wait.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -47,7 +46,6 @@ __global__ void k_drop(int* ok) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_drop<<<1, 64>>>(d);
@@ -60,7 +58,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: mbarrier.arrive_drop -- arrive-and-withdraw semantics
@@ -148,7 +146,6 @@ __global__ void arrive_drop_count_kernel(uint32_t* out) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 
@@ -201,7 +198,7 @@ static int run_theirs() {
 }
 
 
-// Round 4h: arrive_drop with .release.shared::cta semantics.
+// arrive_drop with .release.shared::cta semantics.
 // 1 CTA, 2 warps. Warp 0 writes a SMEM payload then drops with
 // .release.shared::cta. Warp 1 arrives normally + waits, then reads
 // the payload -- the .release ensures Warp 0's write is observable.

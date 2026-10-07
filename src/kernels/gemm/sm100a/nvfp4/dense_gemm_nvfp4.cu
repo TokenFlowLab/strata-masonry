@@ -1,6 +1,6 @@
 // dense_gemm_nvfp4.cu -- K1 dense NVFP4 GEMM, sm_100a (GB200).
 //
-// Forked from dense_gemm_bf16.cu (K0). Same 8-warp warp-specialized
+// Forked from dense_gemm_bf16.cu. Same 8-warp warp-specialized
 // 2SM skeleton; the operands are packed E2M1 (FP4) with block-scaled
 // tcgen05 MMA instead of BF16, and D is still BF16.
 //
@@ -56,7 +56,7 @@
 // 2 scale bytes per row per atom, so two atoms pack into one cell via
 // SF_ID (ID-flip). LOOSE gives every atom its own cell and fits both
 // formats, differing only in waste: MXFP4 fills 2 of the 4 bytes (bytes
-// [2,3] padding; our old layout, ~6-8pp slower), NVFP4 block16 fills all
+// [2,3] padding, ~6-8pp slower), NVFP4 block16 fills all
 // 4 (4 scale bytes per row per atom, no waste -- loose is its only option).
 //
 // Why SFB is replicated while B is N-split: at MMA time B is read from
@@ -107,7 +107,7 @@
 //   (SFB: same shape with N columns 0-127 in place of M rows)
 //
 // ALTERNATIVE (not used): per-atom-cell layout -- each K=64 atom owns its
-// own 4-col group of cells, SF_ID=0 always. This was the pre-ID-flip layout, and is what
+// own 4-col group of cells, SF_ID=0 always. This is what
 // canonical NVFP4 block16 (scale_vec::4X, 4 scale bytes per row per atom)
 // would fill fully:
 //
@@ -337,11 +337,7 @@ struct K1SfLayout {
   // the epi via the ovl_free bar) + depth-2 scale ring at 448.
   // (A 48-col window -- bank1 at 208, ring at 464 -- was built and
   // REFUTED: exact but -10%, TMEM alignment penalty.)
-#if defined(K1_TMP_STRIDE256)
-  static constexpr uint32_t ACC_BANK_STRIDE = (NTC == 128) ? NTC : 256;
-#else
   static constexpr uint32_t ACC_BANK_STRIDE = (NTC == 128) ? NTC : 192;
-#endif
   static constexpr uint32_t RING_OFFSET     = (NTC == 128) ? 256 : 448;
   static constexpr int      TMEM_RING_DEPTH = (NTC == 128) ? 0 : 2;  // 0 = NS-deep
 };
@@ -536,8 +532,8 @@ void load_warp_k1_1tile_2sm_fp4(WpCtx& wpc,
                              tma_b, full_route, k_off, n_offset_b, cache_policy_b);
       // NTC=256 only: L2 prefetch K1_PF_DIST k-blocks ahead. The NS=4 ring
       // buffers ~1 us, so an L2 miss stalls the MMA; warming L2 turns the
-      // in-window load into a hit. (A/B'd at NTC=128: flagships lose
-      // 2-3pp there, so gated by tile width.)
+      // in-window load into a hit. (At NTC=128 it loses 2-6pp to the extra
+      // L2 engine requests, so gated by tile width.)
 #if defined(K1_PF_DIST)
       constexpr int kPfDist = K1_PF_DIST;
 #elif 1
@@ -547,8 +543,6 @@ void load_warp_k1_1tile_2sm_fp4(WpCtx& wpc,
 #else
       constexpr int kPfDist = NUM_STAGES;
 #endif
-      // (Re-tested 2026-08-23 with the per-warp epi: PF at NTC=128 still
-      // loses 2-6pp on the qkv M-RUN rows -- extra L2 engine requests.)
       if constexpr (2 * N_TILE_PER_CTA == 256) {
         if (k + kPfDist < K_BLOCKS) {
           const int k_pf = (k + kPfDist) * (K_TILE / 2);
@@ -736,7 +730,6 @@ void load_warp_k1_1tile_b_side(WpCtx& wpc,
                                   (uint16_t)(0x3 << (2 * cga_pair)));
       }
 #endif
-#if !defined(K1_TMP_NOPF_SPLITB)
 #if defined(K1_PF_DIST)
       constexpr int kPfDistB = K1_PF_DIST;
 #else
@@ -746,7 +739,6 @@ void load_warp_k1_1tile_b_side(WpCtx& wpc,
         tma_prefetch_2d_l2hint(tma_b, (k + kPfDistB) * (K_TILE / 2),
                                n_offset_b, cache_policy_b);
       }
-#endif
     }
     wp_end(wpc, WP_LOAD_ISSUE);
     empty_ph_b.advance();
@@ -844,7 +836,6 @@ void load_warp_k1_1tile_2sm_fp4_splitb(WpCtx& wpc,
                                   /*cta_mask=*/0x3);
       }
 #endif
-#if !defined(K1_TMP_NOPF_SPLITB)
       constexpr int PF_DIST = 8;
       if (k + PF_DIST < K_BLOCKS) {
         const int k_pf = (k + PF_DIST) * (K_TILE / 2);
@@ -852,7 +843,6 @@ void load_warp_k1_1tile_2sm_fp4_splitb(WpCtx& wpc,
         if (!skip_a)
           tma_prefetch_2d_l2hint(tma_a, k_pf, m_offset, cache_policy_a);
       }
-#endif
     }
     wp_end(wpc, WP_LOAD_ISSUE);
     if (!skip_a) empty_ph_a.advance();
@@ -960,32 +950,9 @@ void load_warp_k1_ntiles_2sm_fp4(WpCtx& wpc,
   wp_end(wpc, WP_LOAD_WAIT);
 }
 
-#if defined(K1_TMP_EPROBE)
-__device__ unsigned long long g_ep_acc, g_ep_ld, g_ep_wait, g_ep_store,
-    g_ep_tiles;
-__device__ __forceinline__ unsigned long long k1_gt();
-#endif
-#if defined(K1_TMP_TPROBE)
-__device__ unsigned long long g_wp_acc, g_wp_full, g_wp_body, g_wp_tiles;
-__device__ unsigned long long g_wp_ovl;
-#endif
-#if defined(K1_TMP_FPROBE)
-// Per-launch phase stamps (block 0): kernel entry, first MMA atom
-// issue, last MMA commit, epi end. Accumulated over launches.
-__device__ unsigned long long g_fp_entry, g_fp_first, g_fp_lastc, g_fp_end,
-    g_fp_n;
-#endif
-#if defined(K1_TMP_TPROBE) || defined(K1_TMP_EPROBE) || defined(K1_TMP_FPROBE)
-__device__ __forceinline__ unsigned long long k1_gt() {
-  unsigned long long t;
-  asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(t));
-  return t;
-}
-#endif
-
 // ============================================================================
 // MMA warp: 1 tile body
-// Differences from the BF16 (K0) _1tile_ body:
+// Differences from the BF16 _1tile_ body:
 //   - tcgen05_mma_mxf4nvf4_ss_2sm_block32 instead of tcgen05_mma_f16_ss<2>
 //   - MMA K is 64 (not 16), so K_ATOMS_PER_TILE = K_TILE/64 = 4 at K_TILE=256
 //   - K_ATOM_DELTA = 2: one atom spans 64 FP4 elements = 32 B = 2 descriptor
@@ -1034,13 +1001,6 @@ void mma_warp_k1_1tile_2sm_nvfp4(WpCtx& wpc,
       /*sf_a_data_id=*/2, /*sf_b_data_id=*/2,
       /*ue8m0=*/true);
 
-#if defined(K1_TMP_TPROBE)
-#if !defined(K1_TPROBE_BLK)
-#define K1_TPROBE_BLK 0
-#endif
-  const bool probe = (blockIdx.x == K1_TPROBE_BLK && blockIdx.y == 0 && (threadIdx.x & 31) == 0);
-  unsigned long long tp0 = probe ? k1_gt() : 0;
-#endif
   wp_begin(wpc, WP_MMA_WAIT_ACC);
   acc_pipeline_2bank_producer_acquire(acc_bars, prod_state);
   if constexpr (N_TILE_CLUSTER == 256) {
@@ -1053,10 +1013,6 @@ void mma_warp_k1_1tile_2sm_nvfp4(WpCtx& wpc,
     mbarrier_wait_parity(ovl_addr, (prod_state.count + 1) & 1);
   }
   wp_end(wpc, WP_MMA_WAIT_ACC);
-#if defined(K1_TMP_TPROBE)
-  unsigned long long tp1 = probe ? k1_gt() : 0;
-  unsigned long long tp_full = 0;
-#endif
   const int acc_stage = acc_pipeline_2bank_state_index(prod_state);
   const uint32_t tmem_c =
       tmem_base + (uint32_t)(acc_stage * (int)SF::ACC_BANK_STRIDE);
@@ -1064,13 +1020,7 @@ void mma_warp_k1_1tile_2sm_nvfp4(WpCtx& wpc,
   for (int k = 0; k < K_BLOCKS; ++k) {
     const int s = full_ph.get_stage();
     wp_begin(wpc, WP_MMA_WAIT_FULL);
-#if defined(K1_TMP_TPROBE)
-    unsigned long long tf0 = probe ? k1_gt() : 0;
-#endif
     mbarrier_wait_parity(smem_ptr_u32(&full_bar[s]), full_ph.get_phase());
-#if defined(K1_TMP_TPROBE)
-    if (probe) tp_full += k1_gt() - tf0;
-#endif
     wp_end(wpc, WP_MMA_WAIT_FULL);
 
     const uint64_t da_s   = desc_a0   + s * A_STAGE_DELTA;
@@ -1131,15 +1081,6 @@ void mma_warp_k1_1tile_2sm_nvfp4(WpCtx& wpc,
   if (elect_one_sync()) {
     acc_pipeline_2bank_producer_commit_cluster<2>(acc_bars, prod_state, ctamask);
   }
-#if defined(K1_TMP_TPROBE)
-  if (probe) {
-    unsigned long long tp2 = k1_gt();
-    atomicAdd(&g_wp_acc,  tp1 - tp0);
-    atomicAdd(&g_wp_full, tp_full);
-    atomicAdd(&g_wp_body, tp2 - tp1);
-    atomicAdd(&g_wp_tiles, 1ull);
-  }
-#endif
 }
 
 // Split-ring MMA 1tile (static NTC=256 only). A operands from the NS_A
@@ -1179,27 +1120,13 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
       M_TILE_CLUSTER, N_TILE_CLUSTER, false, false, false, false,
       /*sf_a_data_id=*/2, /*sf_b_data_id=*/2, /*ue8m0=*/true);
 
-#if defined(K1_TMP_TPROBE)
-#if !defined(K1_TPROBE_BLK)
-#define K1_TPROBE_BLK 0
-#endif
-  const bool probe = (blockIdx.x == K1_TPROBE_BLK && blockIdx.y == 0 && (threadIdx.x & 31) == 0);
-  unsigned long long tp0 = probe ? k1_gt() : 0;
-#endif
   wp_begin(wpc, WP_MMA_WAIT_ACC);
   acc_pipeline_2bank_producer_acquire(acc_bars, prod_state);
-#if defined(K1_TMP_TPROBE)
-  unsigned long long tp_acc_only = probe ? k1_gt() : 0;
-#endif
   // NTC=256: the overlap-window wait is taken INSIDE the k=0 iteration,
   // after the k=0 full-bar waits and scale-cp issues, so part of the
   // window-drain chain (~360 ns) hides behind work the warp must do
   // anyway.
   wp_end(wpc, WP_MMA_WAIT_ACC);
-#if defined(K1_TMP_TPROBE)
-  unsigned long long tp1 = probe ? k1_gt() : 0;
-  unsigned long long tp_full = 0;
-#endif
   const int acc_stage = acc_pipeline_2bank_state_index(prod_state);
   const uint32_t tmem_c =
       tmem_base + (uint32_t)(acc_stage * (int)SF::ACC_BANK_STRIDE);
@@ -1211,15 +1138,9 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
     const int sa = ALIGNED ? (k % NS_A) : full_ph_a.get_stage();
     const int sb = full_ph_b.get_stage();
     wp_begin(wpc, WP_MMA_WAIT_FULL);
-#if defined(K1_TMP_TPROBE)
-    unsigned long long tf0 = probe ? k1_gt() : 0;
-#endif
     if (!skip_a)
       mbarrier_wait_parity(smem_ptr_u32(&full_a_bar[sa]), full_ph_a.get_phase());
     mbarrier_wait_parity(smem_ptr_u32(&full_b_bar[sb]), full_ph_b.get_phase());
-#if defined(K1_TMP_TPROBE)
-    if (probe) tp_full += k1_gt() - tf0;
-#endif
     wp_end(wpc, WP_MMA_WAIT_FULL);
 
     const uint64_t da_s   = desc_a0   + sa * A_STAGE_DELTA;
@@ -1257,11 +1178,9 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
         }
       }
 #endif
-#if !defined(K1_TMP_NOOVL)
       uint32_t ovl_addr = static_cast<uint32_t>(
           __cvta_generic_to_shared(&ovl_bars.acc_empty[0]));
       mbarrier_wait_parity(ovl_addr, (prod_state.count + 1) & 1);
-#endif
     }
     if (elect_one_sync()) {
       #pragma unroll
@@ -1294,9 +1213,6 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
       }
       if (!skip_a)
         tcgen05_commit_multicast<2>(smem_ptr_u32(&empty_a_bar[sa]), ctamask);
-#if defined(K1_TMP_CGA_LOCALB)
-      tcgen05_commit_multicast<2>(smem_ptr_u32(&empty_b_bar[sb]), ctamask);
-#else
       if constexpr (CGA_PAIRS == 2) {
         // B slot free for THIS pair: post at rank 0's gate (count 2 --
         // the other pair's MMA posts the second arrival).
@@ -1305,7 +1221,6 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
       } else {
         tcgen05_commit_multicast<2>(smem_ptr_u32(&empty_b_bar[sb]), ctamask);
       }
-#endif
     }
     wp_end(wpc, WP_MMA_ISSUE);
     if (!skip_a) full_ph_a.advance();
@@ -1316,16 +1231,6 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
     tcgen05_commit_multicast<2>(
         smem_ptr_u32(&run_free_bar[tile_idx & 7]), ctamask);
   }
-#if defined(K1_TMP_TPROBE)
-  if (probe) {
-    unsigned long long tp2 = k1_gt();
-    atomicAdd(&g_wp_acc,  tp_acc_only - tp0);
-    atomicAdd(&g_wp_full, tp_full);
-    atomicAdd(&g_wp_body, tp2 - tp1);
-    atomicAdd(&g_wp_ovl,  tp1 - tp_acc_only);
-    atomicAdd(&g_wp_tiles, 1ull);
-  }
-#endif
 }
 
 // ============================================================================
@@ -1431,8 +1336,8 @@ void mma_warp_k1_ntiles_2sm_nvfp4(WpCtx& wpc,
 // K1-local epilogue: early TMEM release. Both 64-col tcgen05.ld's are issued
 // up front and the acc bank is released right after their wait::ld, BEFORE
 // any cvt/STS/TMA work. The shared-block epi holds the bank through the
-// whole 4-sub pipeline (~1.3 us), which paces the MMA at short K (tprobe:
-// acc_wait 271 ns/tile at K=2048). Stores still walk 4 x 32-col sub-buffers
+// whole 4-sub pipeline (~1.3 us), which paces the MMA at short K
+// (acc_wait 271 ns/tile at K=2048). Stores still walk 4 x 32-col sub-buffers
 // over the same 2-buffer D ring.
 // ============================================================================
 template <int M_TILE_PER_CTA, int N_TILE_CLUSTER, int EPI_SUB_COLS,
@@ -1460,16 +1365,9 @@ void k1_epi_1tile_earlyrelease(WpCtx& wpc,
   for (int b = 0; b < EPI_NUM_BUFS; ++b)
     d_smem_buf[b] = reinterpret_cast<__nv_bfloat16*>(smem_d + b * EPI_BUF_BYTES);
 
-#if defined(K1_TMP_EPROBE)
-  const bool eprobe = (blockIdx.x == 0 && warp == 4 && lane == 0);
-  unsigned long long e0 = eprobe ? k1_gt() : 0;
-#endif
   wp_begin(wpc, WP_EPI_WAIT_ACC);
   acc_pipeline_2bank_consumer_wait(acc_bars, cons_state);
   wp_end(wpc, WP_EPI_WAIT_ACC);
-#if defined(K1_TMP_EPROBE)
-  unsigned long long e1 = eprobe ? k1_gt() : 0;
-#endif
   const int acc_stage_cons = acc_pipeline_2bank_state_index(cons_state);
   const uint32_t my_tmem = tmem_base + my_tmem_row_offset
                            + (uint32_t)(acc_stage_cons * N_TILE_CLUSTER);
@@ -1481,36 +1379,25 @@ void k1_epi_1tile_earlyrelease(WpCtx& wpc,
   wp_end(wpc, WP_EPI_TMEM_LD);
   acc_pipeline_2bank_consumer_release(acc_bars, cons_state);
   acc_pipeline_2bank_state_advance(cons_state);
-#if defined(K1_TMP_EPROBE)
-  unsigned long long e2 = eprobe ? k1_gt() : 0;
-  unsigned long long ew = 0;
-#endif
 
-  // (Direct st.global from lanes-as-rows was built and REFUTED, log
-  // sec 48: -43% -- 32-way address divergence per store instruction;
-  // the SMEM bounce + TMA box store IS the coalescer.)
+  // (Direct st.global from lanes-as-rows measured -43% -- 32-way address
+  // divergence per store; the SMEM bounce + TMA box store IS the coalescer.)
 
   // Per-warp store pipeline: each epi warp owns its 32-row slice of
   // every buffer and runs its own TMA chain (wait_group state is
-  // per-thread). No CTA-wide bar.sync on the store path -- the old
-  // 2 x bar.sync(128) per sub plus single-lane issue was ~1.1 us/tile
-  // (eprobe), pacing the MMA at short K.
+  // per-thread). No CTA-wide bar.sync on the store path -- a
+  // 2 x bar.sync(128) per sub plus single-lane issue costs ~1.1 us/tile,
+  // pacing the MMA at short K.
   #pragma unroll
   for (int sub = 0; sub < EPI_SUB_COUNT; ++sub) {
     const int buf  = sub & (EPI_NUM_BUFS - 1);
     const int col0 = sub * EPI_SUB_COLS;
 
     wp_begin(wpc, WP_EPI_WAIT_STORE);
-#if defined(K1_TMP_EPROBE)
-    unsigned long long w0 = eprobe ? k1_gt() : 0;
-#endif
     if (lane == 0) {
       cp_async_bulk_wait_group<EPI_NUM_BUFS - 1>();
     }
     __syncwarp();
-#if defined(K1_TMP_EPROBE)
-    if (eprobe) ew += k1_gt() - w0;
-#endif
     wp_end(wpc, WP_EPI_WAIT_STORE);
 
     wp_begin(wpc, WP_EPI_STORE);
@@ -1534,16 +1421,6 @@ void k1_epi_1tile_earlyrelease(WpCtx& wpc,
     }
     wp_end(wpc, WP_EPI_STORE);
   }
-#if defined(K1_TMP_EPROBE)
-  if (eprobe) {
-    unsigned long long e3 = k1_gt();
-    atomicAdd(&g_ep_acc,  e1 - e0);
-    atomicAdd(&g_ep_ld,   e2 - e1);
-    atomicAdd(&g_ep_wait, ew);
-    atomicAdd(&g_ep_store, (e3 - e2) - ew);
-    atomicAdd(&g_ep_tiles, 1ull);
-  }
-#endif
 }
 
 // ============================================================================
@@ -1727,11 +1604,7 @@ void k1_epi_1tile_ntc256(WpCtx& wpc,
   acc_pipeline_2bank_consumer_wait(acc_bars, cons_state);
   wp_end(wpc, WP_EPI_WAIT_ACC);
   const int acc_stage_cons = acc_pipeline_2bank_state_index(cons_state);
-#if defined(K1_TMP_STRIDE256)
-  constexpr int ACC_BANK_STRIDE_EPI = 256;
-#else
   constexpr int ACC_BANK_STRIDE_EPI = 192;
-#endif
   const uint32_t bank = tmem_base + my_tmem_row_offset
                         + (uint32_t)(acc_stage_cons * ACC_BANK_STRIDE_EPI);
   // Relative col range of the shared abs window [192,256).
@@ -1926,11 +1799,6 @@ dense_gemm_nvfp4_k1_impl(
   const int warp = threadIdx.x >> 5;
   const int lane = threadIdx.x & 31;
   WpCtx wpc = wp_ctx_init();
-#if defined(K1_TMP_FPROBE)
-  const bool fprobe = (blockIdx.x == 0 && threadIdx.x == 0);
-  if (fprobe) { atomicAdd(&g_fp_entry, k1_gt()); atomicAdd(&g_fp_n, 1ull); }
-  const bool fprobe_w0 = (blockIdx.x == 0 && warp == 0 && lane == 0);
-#endif
 
   // Static only: this cluster's slot in the strided walk over total_tiles.
   // CGA_PAIRS=2: two MMA pairs per launch cluster share one owner unit;
@@ -1946,9 +1814,9 @@ dense_gemm_nvfp4_k1_impl(
     }
     mbarrier_init(smem_ptr_u32(tmem_dealloc_bar), 32);
     // acc bars are K1-owned; the composite init below gets nullptr.
-    // (A 3rd acc bank for static NTC=128 was built and REFUTED, log
-    // sec 47: the deeper MMA/epi overlap slows the epi store path by
-    // about what it saves in acc_wait -- net -6..-10% on qkv rows.)
+    // (A 3rd acc bank for static NTC=128 was REFUTED: the deeper MMA/epi
+    // overlap slows the epi store path by about what it saves in acc_wait
+    // -- net -6..-10% on qkv rows.)
     for (int i = 0; i < 2; ++i) {
       mbarrier_init(smem_ptr_u32(&acc_full[i]), 1);
       mbarrier_init(smem_ptr_u32(&acc_empty[i]), 256);
@@ -1956,7 +1824,7 @@ dense_gemm_nvfp4_k1_impl(
     if constexpr (NTC == 256) {
       // 8 = lane 0 of each epi warp, both CTAs. Fewer arrivals on the
       // window-release path = less mbarrier traffic on the MMA's
-      // critical wake (was 256 = every epi thread).
+      // critical wake.
       for (int i = 0; i < 2; ++i)
         mbarrier_init(smem_ptr_u32(&ovl_free[i]), 8);
     }
@@ -1982,7 +1850,7 @@ dense_gemm_nvfp4_k1_impl(
       smem_ptr_u32(smem_b), K1_B_SBO, K1_B_LBO, SmemSwizzleBlackwell::B128);
   // Scale SMEM descriptors for tcgen05.cp.32x128b: an unswizzled 32x16B
   // core matrix, rows contiguous -> SBO = 8 rows x 16 B = 128, LBO = 16.
-  // (Matches CUTLASS make_umma_desc<Major::K> and trtllm-gen createSmemDesc.)
+  // (Matches CUTLASS make_umma_desc<Major::K>.)
   const uint64_t desc_sfa0 = build_smem_desc_blackwell(
       smem_ptr_u32(smem_sfa), /*SBO=*/128, /*LBO=*/16, SmemSwizzleBlackwell::None);
   const uint64_t desc_sfb0 = build_smem_desc_blackwell(
@@ -2043,7 +1911,7 @@ dense_gemm_nvfp4_k1_impl(
             peer, warp, lane, tmem_slot, run_len);
       } else {
         // The shared-block epi stores 128-high from warp 4 only; tmap_d
-        // is now a 32-high per-warp box, so route plain CLC
+        // is a 32-high per-warp box, so route plain CLC
         // through the runclc wrapper with run_len=1 (identical consume
         // mechanics, per-warp earlyrelease drain).
         k1_epi_ntiles_runclc<
@@ -2055,12 +1923,8 @@ dense_gemm_nvfp4_k1_impl(
       }
     }
   } else {  // STATIC_SCHED
-#if defined(K1_TMP_CGA_LOCALB)
-    const bool warp3_works = (NS_B > 0);
-#else
     const bool warp3_works =
         (NS_B > 0) && (CGA_PAIRS == 1 || (blockIdx.x & 3) == 0);
-#endif
     if (warp == 1 || (warp == 3 && !warp3_works)) {
       // No sched / idle role here. Return before griddepcontrol -- see the
       // gotcha in this kernel's banner.
@@ -2106,10 +1970,6 @@ dense_gemm_nvfp4_k1_impl(
       [[maybe_unused]] PhaseTracker<(NS_B > 0) ? NS_B : 1> full_ph_b;
       int prev_m_tile_mma = -1;
       for (int t = 0; t < my_tiles; ++t) {
-#if defined(K1_TMP_FPROBE)
-        if (t == 0 && fprobe_w0) atomicAdd(&g_fp_first, k1_gt());
-        if (t == my_tiles - 1 && fprobe_w0) atomicAdd(&g_fp_lastc, k1_gt());
-#endif
         // PDL gate point (host-chosen). gate_early: open at
         // the FIRST tile -- freed SM pairs pick up next-launch CTAs
         // continuously, amortizing wave quantization (K=2048 rows
@@ -2306,11 +2166,7 @@ dense_gemm_nvfp4_k1_impl(
             k1_decode_tile<ORDER, BLOCK_M, BLOCK_N, M_RUN>(
                 g, m_clusters_dim, n_clusters_dim, m_tile, n_tile);
           }
-#if defined(K1_TMP_CGA_LOCALB)
-          if constexpr (false) {
-#else
           if constexpr (CGA_PAIRS == 2) {
-#endif
             load_warp_k1_1tile_b_side_cga<
                 NS_B, M_TILE_PER_CTA, N_TILE_PER_CTA, K_TILE,
                 SF_ATOMS_PER_CELL>(
@@ -2329,11 +2185,7 @@ dense_gemm_nvfp4_k1_impl(
         }
         wp_begin(wpc, WP_LOAD_WAIT);
         for (int i = 0; i < NS_B; ++i) {
-#if defined(K1_TMP_CGA_LOCALB)
-          uint64_t* drain = empty_b_bar;
-#else
           uint64_t* drain = (CGA_PAIRS == 2) ? b_gate_bar : empty_b_bar;
-#endif
           mbarrier_wait_parity(smem_ptr_u32(&drain[empty_ph_b.get_stage()]),
                                empty_ph_b.get_phase());
           empty_ph_b.advance();
@@ -2394,10 +2246,6 @@ dense_gemm_nvfp4_k1_impl(
   }
 
   wp_flush(wpc);
-#if defined(K1_TMP_FPROBE)
-  if (blockIdx.x == 0 && warp == 4 && lane == 0)
-    atomicAdd(&g_fp_end, k1_gt());
-#endif
   if (lane == 0) griddepcontrol_launch_dependents();
 }
 
@@ -2463,11 +2311,7 @@ static float ue8m0_decode(uint8_t s) {
 
 // CPU reference for block32 NVFP4 GEMM (A: MxK, B: NxK transposed).
 // A and B are packed E2M1 (2 per byte). Scales are UE8M0 per (16-row, 32-K) block.
-//
-// Intentionally unused today (nvcc will warn): while every scale is 1.0 the
-// runners verify against the closed form K*16 instead, which is far cheaper.
-// This is the spec the verify switches to once per-K-tile scales land -- keep
-// it in step with the kernel rather than deleting and re-deriving it.
+// Unused: the runners verify in closed form (FILL 1/3) or by sampled reference (FILL 2/4).
 static void ref_nvfp4_gemm(
     const uint8_t* A, const uint8_t* B,
     const uint8_t* sca, const uint8_t* scb,
@@ -2547,19 +2391,7 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
   CUDA_CHECK(cudaMalloc(&dSFB, sf_total_bytes(N)));
 
   const int fill_mode = options.fill ? options.fill : k1_fill_mode();
-  if (const char* pp = getenv("K1_TMP_PAIRPROBE")) {
-    // Pairing probe: A = one-hot 4.0 at (row 0, k = k0); B(n, k) = 4.0
-    // iff k == n; all scale exponents 0. D(0, n) != 0 exactly at the
-    // b-index the kernel pairs with a-index k0.
-    const int k0 = atoi(pp);
-    std::vector<uint8_t> h((size_t)M * K / 2, 0);
-    h[k0 / 2] = (uint8_t)(0x6 << ((k0 & 1) * 4));
-    CUDA_CHECK(cudaMemcpy(dA, h.data(), h.size(), cudaMemcpyHostToDevice));
-    h.assign((size_t)N * K / 2, 0);
-    for (int nn = 0; nn < N && nn < K; ++nn)
-      h[(size_t)nn * (K / 2) + nn / 2] |= (uint8_t)(0x6 << ((nn & 1) * 4));
-    CUDA_CHECK(cudaMemcpy(dB, h.data(), h.size(), cudaMemcpyHostToDevice));
-  } else if (fill_mode == 1 || fill_mode == 3) {
+  if (fill_mode == 1 || fill_mode == 3) {
     // E2M1 4.0 packed = 0x6 (mode 1) or 1.0 packed = 0x2 (mode 3).
     const int byte = (fill_mode == 1) ? 0x66 : 0x22;
     CUDA_CHECK(cudaMemset(dA, byte, (size_t)M * K / 2));
@@ -2603,22 +2435,16 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
   };
   auto sa_exp = [](int m) { return (m % 5) - 2; };
   auto sb_exp = [](int n) { return (n % 3) - 1; };
-  const bool generic_sf = (fill_mode == 2 || fill_mode == 4)
-                          && !getenv("K1_TMP_PATSF");
-  const bool zero_sf = getenv("K1_TMP_PAIRPROBE") != nullptr;
+  const bool generic_sf = (fill_mode == 2 || fill_mode == 4);
   {
     std::vector<uint8_t> h(sf_total_bytes(M), 0);
-    if (zero_sf)
-      sf_pack(h.data(), M, K, [](int r, int j) { (void)r; (void)j; return 0; });
-    else if (generic_sf)
+    if (generic_sf)
       sf_pack(h.data(), M, K, [](int r, int j) { return k1_generic_sf_exp(r, j, 0); });
     else
       sf_pack(h.data(), M, K, [&](int r, int j) { (void)j; return sa_exp(r); });
     CUDA_CHECK(cudaMemcpy(dSFA, h.data(), h.size(), cudaMemcpyHostToDevice));
     h.assign(sf_total_bytes(N), 0);
-    if (zero_sf)
-      sf_pack(h.data(), N, K, [](int r, int j) { (void)r; (void)j; return 0; });
-    else if (generic_sf)
+    if (generic_sf)
       sf_pack(h.data(), N, K, [](int r, int j) { return k1_generic_sf_exp(r, j, 1); });
     else
       sf_pack(h.data(), N, K, [&](int r, int j) { (void)j; return sb_exp(r); });
@@ -2667,11 +2493,7 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
   const int total_tiles = m_clusters * n_clusters;
   // Static: one cluster per SM pair, each striding the tile list. CLC: one
   // cluster per tile, 2D so the hardware's grid.x-major sweep matches ORDER.
-#if defined(K1_TMP_MAXU)
-  const int max_units = (CGA_PAIRS == 2) ? K1_TMP_MAXU : K1_MAX_CLUSTERS;
-#else
   const int max_units = K1_MAX_CLUSTERS / CGA_PAIRS;  // 76 pairs or 38 CGAs
-#endif
   const int num_clusters =
       (total_tiles < max_units) ? total_tiles : max_units;
   dim3 grid = STATIC_SCHED
@@ -2743,62 +2565,12 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
       (K <= 2048) || (K <= 4096 && N <= 8192);
 
   WpBuffer wpbuf = wp_alloc(grid);
-#if defined(K1_TMP_EPROBE)
-  { unsigned long long z = 0;
-    cudaMemcpyToSymbol(g_ep_acc, &z, 8); cudaMemcpyToSymbol(g_ep_ld, &z, 8);
-    cudaMemcpyToSymbol(g_ep_wait, &z, 8); cudaMemcpyToSymbol(g_ep_store, &z, 8);
-    cudaMemcpyToSymbol(g_ep_tiles, &z, 8); }
-#endif
-#if defined(K1_TMP_FPROBE)
-  { unsigned long long z = 0;
-    cudaMemcpyToSymbol(g_fp_entry, &z, 8); cudaMemcpyToSymbol(g_fp_first, &z, 8);
-    cudaMemcpyToSymbol(g_fp_lastc, &z, 8); cudaMemcpyToSymbol(g_fp_end, &z, 8);
-    cudaMemcpyToSymbol(g_fp_n, &z, 8); }
-#endif
-#if defined(K1_TMP_TPROBE)
-  { unsigned long long z = 0;
-    cudaMemcpyToSymbol(g_wp_acc, &z, 8); cudaMemcpyToSymbol(g_wp_full, &z, 8);
-    cudaMemcpyToSymbol(g_wp_body, &z, 8); cudaMemcpyToSymbol(g_wp_tiles, &z, 8);
-    cudaMemcpyToSymbol(g_wp_ovl, &z, 8); }
-#endif
 
   auto launch = [&](size_t) {
     return cudaLaunchKernelEx(&config, kfn, tmap_a, tmap_b, tmap_sfa, tmap_sfb, tmap_d,
                        M, N, total_tiles, num_clusters, run_len, gate_early);
   };
   double ms = options.benchmark ? dense_gemm_nvfp4_benchmark::measure(stream, launch) : 0.0;
-#if defined(K1_TMP_TPROBE)
-  { unsigned long long a, f, b2, t, ov;
-    cudaMemcpyFromSymbol(&a, g_wp_acc, 8); cudaMemcpyFromSymbol(&f, g_wp_full, 8);
-    cudaMemcpyFromSymbol(&b2, g_wp_body, 8); cudaMemcpyFromSymbol(&t, g_wp_tiles, 8);
-    cudaMemcpyFromSymbol(&ov, g_wp_ovl, 8);
-    if (t) printf("  [tprobe] tiles=%llu acc_wait=%.0f ovl_wait=%.0f full_wait=%.0f body=%.0f ns/tile\n",
-                  t, (double)a / t, (double)ov / t, (double)f / t, (double)b2 / t); }
-#endif
-
-#if defined(K1_TMP_EPROBE)
-  { unsigned long long a, l, w, st, t;
-    cudaMemcpyFromSymbol(&a, g_ep_acc, 8); cudaMemcpyFromSymbol(&l, g_ep_ld, 8);
-    cudaMemcpyFromSymbol(&w, g_ep_wait, 8);
-    cudaMemcpyFromSymbol(&st, g_ep_store, 8);
-    cudaMemcpyFromSymbol(&t, g_ep_tiles, 8);
-    if (t) printf("  [eprobe] tiles=%llu acc_wait=%.0f ldtm=%.0f "
-                  "storewait=%.0f store=%.0f ns/tile\n",
-                  t, (double)a / t, (double)l / t, (double)w / t,
-                  (double)st / t); }
-#endif
-#if defined(K1_TMP_FPROBE)
-  { unsigned long long e, f, lc, en, n;
-    cudaMemcpyFromSymbol(&e, g_fp_entry, 8);
-    cudaMemcpyFromSymbol(&f, g_fp_first, 8);
-    cudaMemcpyFromSymbol(&lc, g_fp_lastc, 8);
-    cudaMemcpyFromSymbol(&en, g_fp_end, 8);
-    cudaMemcpyFromSymbol(&n, g_fp_n, 8);
-    if (n) printf("  [fprobe] n=%llu prologue(entry->first-tile)=%.0f "
-                  "body(first->last-tile-top)=%.0f tail(last-tile-top->end)=%.0f ns\n",
-                  n, (double)(f - e) / n, (double)(lc - f) / n,
-                  (double)(en - lc) / n); }
-#endif
   wp_reset(wpbuf);
   // Also supplies the single untimed launch used for an output dump.
   CUDA_CHECK(launch(0));
@@ -2837,18 +2609,7 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
     printf("  wrote %zu BF16 values to %s\n", output.size(), options.dump_output);
   }
 
-  if (verify && getenv("K1_TMP_PAIRPROBE")) {
-    std::vector<__nv_bfloat16> hD((size_t)M * N);
-    CUDA_CHECK(cudaMemcpy(hD.data(), dD, hD.size() * 2, cudaMemcpyDeviceToHost));
-    printf("  pairprobe k0=%s -> row-0 nonzeros:", getenv("K1_TMP_PAIRPROBE"));
-    int cnt = 0;
-    for (int nn = 0; nn < N && cnt < 8; ++nn) {
-      const float v = __bfloat162float(hD[nn]);
-      if (v != 0.0f) { printf(" n=%d(v=%.1f)", nn, v); ++cnt; }
-    }
-    if (!cnt) printf(" none");
-    printf("\n");
-  } else if (verify && (fill_mode == 2 || fill_mode == 4)) {
+  if (verify && (fill_mode == 2 || fill_mode == 4)) {
     // Random-data modes: sampled reference. 2048 hashed (m, n) pairs,
     // fp32 accumulation then bf16 rounding, mirroring the kernel's store.
     // Tolerance: |got - ref| <= max(0.8% * |ref|, 16.0). The 0.8% is two
@@ -2865,22 +2626,13 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
       const int nn = (int)(k1_hash((uint32_t)(2 * smp + 2)) % (uint32_t)N);
       float acc = 0.0f;
       for (int k = 0; k < K; ++k) {
-        // element index under test: nibble-swap hypothesis via env
-        const uint32_t ia = getenv("K1_TMP_NIBSWAP")
-            ? (uint32_t)((size_t)m * K + (k ^ 1))
-            : (uint32_t)((size_t)m * K + k);
-        const uint32_t ib = getenv("K1_TMP_NIBSWAP")
-            ? (uint32_t)((size_t)nn * K + (k ^ 1))
-            : (uint32_t)((size_t)nn * K + k);
+        const uint32_t ia = (uint32_t)((size_t)m * K + k);
+        const uint32_t ib = (uint32_t)((size_t)nn * K + k);
         const float a = e2m1_decode(k1_e2m1_nibble(fill_mode, ia, K1_FILL_SEED_A));
         const float b = e2m1_decode(k1_e2m1_nibble(fill_mode, ib, K1_FILL_SEED_B));
         if (a == 0.0f || b == 0.0f) continue;
-        const float sa = getenv("K1_TMP_PATSF")
-            ? exp2f((float)((m % 5) - 2))
-            : exp2f((float)k1_generic_sf_exp(m, k / 32, 0));
-        const float sb = getenv("K1_TMP_PATSF")
-            ? exp2f((float)((nn % 3) - 1))
-            : exp2f((float)k1_generic_sf_exp(nn, k / 32, 1));
+        const float sa = exp2f((float)k1_generic_sf_exp(m, k / 32, 0));
+        const float sb = exp2f((float)k1_generic_sf_exp(nn, k / 32, 1));
         acc += a * b * sa * sb;
       }
       const float ref = __bfloat162float(__float2bfloat16(acc));
@@ -2929,42 +2681,6 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
         if (rel > max_rel) { max_rel = rel; bad_m = m; bad_n = n; }
       }
     }
-#if defined(K1_TMP_TILEMAP)
-    {
-      const int pm[6] = {0, 1, 32, 64, 96, 128};
-      const int pn[8] = {0, 32, 64, 96, 128, 160, 192, 224};
-      for (int i = 0; i < 6; ++i) {
-        printf("    m=%4d:", pm[i]);
-        for (int j = 0; j < 8; ++j)
-          printf(" n%d=%.0f", pn[j],
-                 __bfloat162float(hD[(size_t)pm[i] * N + pn[j]]));
-        printf("\n");
-      }
-      const int mt = M / 256, nt = N / 256;
-      printf("  tile map (256x256 blocks, m down / n right): .=ok 0=zero X=bad\n");
-      for (int i = 0; i < mt && i < 24; ++i) {
-        printf("    ");
-        for (int j = 0; j < nt && j < 40; ++j) {
-          int zero = 0, bad = 0;
-          for (int mm = i * 256; mm < i * 256 + 256; mm += 37) {
-            const float sca = exp2f((float)sa_exp(mm));
-            for (int nn = j * 256; nn < j * 256 + 256; nn += 31) {
-              float v = __bfloat162float(hD[(size_t)mm * N + nn]);
-#if defined(K1_DISABLE_SF_TMA_CP) || defined(K1_DISABLE_SF_CP)
-              const float e = 16.0f * K;
-#else
-              const float e = 16.0f * K * sca * exp2f((float)sb_exp(nn));
-#endif
-              if (v == 0.0f) ++zero;
-              else if (fabsf(v - e) / e > 1e-3f) ++bad;
-            }
-          }
-          printf("%c", bad ? 'X' : (zero ? '0' : '.'));
-        }
-        printf("\n");
-      }
-    }
-#endif
     bool ok = (nan_count == 0) && (max_rel < 1e-3f);
     printf("  verify M=%d,N=%d,K=%d (real scales): max_rel=%.2e nan=%d %s",
            M, N, K, max_rel, nan_count, ok ? "OK" : "FAIL");
@@ -2986,7 +2702,7 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
 // K-dispatch. NS rises with K until the SMEM ring hits its budget: at NTC=128
 // a stage costs A 16 KB + B 8 KB + SFA 1 KB + SFB 1 KB = 26 KB, so NS=7 is
 // 182 KB, plus 32 KB of D staging and the bars -> ~216 KB against the 232 KB
-// limit (NS=8 = 241 KB does not fit since real scale delivery).
+// limit (NS=8 = 241 KB does not fit).
 template <ClcRasterOrder ORDER, bool STATIC_SCHED = false,
           int BLOCK_M = 0, int BLOCK_N = 0,
           int SF_ATOMS_PER_CELL = 2, bool M_RUN = false>
@@ -3017,7 +2733,7 @@ static double run_k1_kdispatch_ntc128(int M, int N, int K, bool verify = false,
 }
 
 // Entry point. NTC is pinned at 128 for every shape -- the TMEM scale region
-// leaves no room for 256; see the K1_SF_*_TMEM_OFF comment.
+// leaves no room for 256; see the TMEM note above K1_TMEM_NCOLS.
 template <ClcRasterOrder ORDER = ClcRasterOrder::AlongN,
           bool STATIC_SCHED = false, int BLOCK_M = 0, int BLOCK_N = 0,
           int SF_ATOMS_PER_CELL = 2, bool M_RUN = false>
@@ -3042,17 +2758,10 @@ static double k1_blocked_probe(int M, int N, int K, bool verify = false) {
 // NTC=256 probe: static M-RUN, NS=4 (skip needs K_BLOCKS %% 4 == 0).
 static double k1_ntc256_probe(int M, int N, int K, bool verify = false) {
   switch (K) {
-#if defined(K1_TMP_NO_MRUN)
-    case  2048: return run_one_k1<  8, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, false>(M, N, verify);
-    case  4096: return run_one_k1< 16, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, false>(M, N, verify);
-    case  8192: return run_one_k1< 32, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, false>(M, N, verify);
-    case 16384: return run_one_k1< 64, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, false>(M, N, verify);
-#else
     case  2048: return run_one_k1<  8, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(M, N, verify);
     case  4096: return run_one_k1< 16, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(M, N, verify);
     case  8192: return run_one_k1< 32, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(M, N, verify);
     case 16384: return run_one_k1< 64, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(M, N, verify);
-#endif
   }
   printf("  K=%d not in NTC=256 table\n", K); return 0.0;
 }
@@ -3165,7 +2874,7 @@ static double k1_ntc256_best(int M, int N, int K, const char** label) {
     // Plain strided AlongN at NTC=256 (no M-RUN order): the honest
     // ingress-halving candidate for per-SM-walled flagship shapes.
     // NS_A=6 / NS_B=6 (12 stages, SMEM max; legal without skip) --
-    // ring depth covers the TMA round trip (secs 37, 44).
+    // ring depth covers the TMA round trip.
     double pl = 0.0;
     switch (K) {
       case  2048: pl = run_one_k1<  8, 256, 6, ClcRasterOrder::AlongN, true, 0, 0, 2, false, 6>(M, N); break;
@@ -3273,12 +2982,6 @@ int main(int argc, char** argv) {
                       "K in {256,512,1024,2048,4096,8192,16384,30720}\n");
       return 1;
     }
-    for (const char* probe : {"K1_TMP_PAIRPROBE", "K1_TMP_PATSF", "K1_TMP_NIBSWAP"}) {
-      if (getenv(probe)) {
-        fprintf(stderr, "unset %s for the standard single-case interface\n", probe);
-        return 1;
-      }
-    }
     options.standard_output = true;
   }
   CUDA_CHECK(cudaFree(0));
@@ -3339,40 +3042,6 @@ int main(int argc, char** argv) {
     }
     return 0;
   }
-  if (getenv("K1_TMP_ATTR")) {
-    printf("[blocked on cubes]\n");
-    k1_blocked_probe<16,  8>(30720, 30720, 30720, true);
-    k1_blocked_probe<16, 16>(30720, 30720, 30720);
-    k1_blocked_probe<32, 16>(30720, 30720, 30720);
-    k1_blocked_probe<16,  8>(32768, 32768, 16384, true);
-    k1_blocked_probe<16, 16>(32768, 32768, 16384);
-    printf("[NTC256 x blocked, 16384^3]\n");
-    run_one_k1<64, 256, 4, ClcRasterOrder::AlongN, true, 16,  8, 2, false, 7>(16384, 16384, true);
-    run_one_k1<64, 256, 4, ClcRasterOrder::AlongN, true,  8,  8, 2, false, 7>(16384, 16384);
-    printf("[NTC256 x blocked, 30720^3]\n");
-    run_one_k1<120, 256, 4, ClcRasterOrder::AlongN, true, 16,  8, 2, false, 7>(30720, 30720, true);
-    run_one_k1<120, 256, 4, ClcRasterOrder::AlongN, true, 16, 16, 2, false, 7>(30720, 30720);
-    printf("[flagship static AlongN NS=8 baseline]\n");
-    run_one_k1<32, 128, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, false>(30720, 4096, true);
-    return 0;
-  }
-  if (getenv("K1_TMP_PAIRPROBE")) {
-    printf("[NTC=128 M-RUN K=4096]\n");
-    run_one_k1<16, 128, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 5120, true);
-    printf("[NTC=128 M-RUN K=2048 (KB==NS)]\n");
-    run_one_k1< 8, 128, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 5120, true);
-    printf("[NTC=128 NO-M-RUN K=4096]\n");
-    run_one_k1<16, 128, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, false>(30720, 5120, true);
-    printf("[NTC=256 splitb K=8192]\n");
-    run_one_k1<32, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, true, 7>(30720, 5120, true);
-    return 0;
-  }
-#if defined(K1_TMP_NCU_ONE)
-  run_k1<ClcRasterOrder::AlongN>(30720, 4096, 8192, false);              // CLC AlongN winner
-  run_one_k1<32, 128, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 4096, false);  // M-RUN + pp
-  run_one_k1<32, 256, 4, ClcRasterOrder::AlongN, true, 0, 0, 2, false, 7>(30720, 4096, false); // NTC256 AlongN
-  return 0;
-#endif
   k1_ntc256_probe(14080, 5120, 2048, /*verify=*/true);
   k1_ntc256_probe(30720, 4096, 8192, /*verify=*/true);   // 2K+2N
   k1_ntc256_probe(30720, 2048, 4096, /*verify=*/true);   // gen-o
@@ -3404,258 +3073,6 @@ int main(int argc, char** argv) {
     {"4M+4K+4N",  122880,  8192, 16384},
     {"2M+4K+8N",   61440, 16384, 16384},
   };
-  if (getenv("K1_TMP_BLK")) {
-    printf("--- BLK256 (5,6) on the blocked-picked shapes ---\n");
-    printf("[32k-mixed bm8bn8 / bm16bn16 / bm16bn32]\n");
-    k1_blocked256< 8,  8>(32768, 32768, 16384);
-    k1_blocked256<16, 16>(32768, 32768, 16384);
-    k1_blocked256<16, 32>(32768, 32768, 16384);
-    printf("[30720^3 bm8bn8 / bm16bn16]\n");
-    k1_blocked256< 8,  8>(30720, 30720, 30720);
-    k1_blocked256<16, 16>(30720, 30720, 30720);
-    printf("[16384^3 bm8bn8 / bm16bn16]\n");
-    k1_blocked256< 8,  8>(16384, 16384, 16384);
-    k1_blocked256<16, 16>(16384, 16384, 16384);
-    printf("[2M+4K+8N bm16bn16]\n");
-    k1_blocked256<16, 16>(61440, 16384, 16384);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO18")) {
-    printf("[gen-qkv-2N: M-RUN NTC128 / rstride rl8 / rl16 / NTC256 A75]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 10240, 2048);
-    k1_rstride_probe(30720, 10240, 2048, 8);
-    k1_rstride_probe(30720, 10240, 2048, 16);
-    k1_ntc256_ns<7, 5>(30720, 10240, 2048);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO17")) {
-    printf("[gen-o (8,4) blk bm8/bm4/bm12 + gen-o-2M/4M (8,4) blk]\n");
-    k1_blocked256_ns< 8,  8, 8, 4>(30720, 2048, 4096);
-    k1_blocked256_ns< 4,  8, 8, 4>(30720, 2048, 4096);
-    k1_blocked256_ns<12,  8, 8, 4>(30720, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 8, 4>(61440, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 8, 4>(122880, 2048, 4096);
-    printf("[und-o (8,4) blk + plain]\n");
-    k1_blocked256_ns< 8,  8, 8, 4>(14080, 2048, 4096);
-    k1_ntc256_ns<8, 4>(14080, 2048, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO16")) {
-    printf("[gen-o BLK a75 bm8/bm4/bm12 + plain (8,4)]\n");
-    k1_blocked256_ns< 8,  8, 7, 5>(30720, 2048, 4096);
-    k1_blocked256_ns< 4,  8, 7, 5>(30720, 2048, 4096);
-    k1_blocked256_ns<12,  8, 7, 5>(30720, 2048, 4096);
-    k1_ntc256_ns<8, 4>(30720, 2048, 4096);
-    printf("[und-o plain A75 / (8,4) / BLK a75]\n");
-    k1_ntc256_ns<7, 5>(14080, 2048, 4096);
-    k1_ntc256_ns<8, 4>(14080, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 7, 5>(14080, 2048, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO15")) {
-    printf("[gen-o-2M a75 bm8bn8 + plain A75]\n");
-    k1_blocked256_ns< 8,  8, 7, 5>(61440, 2048, 4096);
-    k1_ntc256_ns<7, 5>(61440, 2048, 4096);
-    printf("[gen-o plain A75]\n");
-    k1_ntc256_ns<7, 5>(30720, 2048, 4096);
-    printf("[und-o plain A75]\n");
-    k1_ntc256_ns<7, 5>(14080, 2048, 4096);
-    printf("[gen-qkv / und-qkv M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 5120, 2048);
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(14080, 5120, 2048);
-    printf("[gen-gate M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 128, 2048);
-    printf("[gen-o-2N / 2M+2N plain A75]\n");
-    k1_ntc256_ns<7, 5>(30720, 4096, 4096);
-    k1_ntc256_ns<7, 5>(61440, 4096, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO14")) {
-    printf("[gen-qkv NTC256 M-RUN splitb (8,4)/(8,3) skip]\n");
-    run_one_k1< 8, 256, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true, 4>(30720, 5120);
-    run_one_k1< 8, 256, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true, 3>(30720, 5120, true);
-    printf("[und-qkv NTC256 M-RUN splitb (8,4)/(8,3) skip]\n");
-    run_one_k1< 8, 256, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true, 4>(14080, 5120);
-    run_one_k1< 8, 256, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true, 3>(14080, 5120);
-    printf("[gen-qkv-2M NTC256 M-RUN splitb (8,4) skip]\n");
-    run_one_k1< 8, 256, 8, ClcRasterOrder::AlongN, true, 0, 0, 2, true, 4>(61440, 5120);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO13")) {
-    printf("[gen-qkv M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 5120, 2048);
-    printf("[und-qkv M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(14080, 5120, 2048);
-    printf("[gen-qkv-2M M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(61440, 5120, 2048);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO11")) {
-    printf("[gen-qkv M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(30720, 5120, 2048);
-    printf("[und-qkv M-RUN NTC128]\n");
-    run_k1<ClcRasterOrder::AlongN, true, 0, 0, 2, true>(14080, 5120, 2048);
-    printf("[gen-qkv NTC256 A75]\n");
-    k1_ntc256_ns<7, 5>(30720, 5120, 2048);
-    printf("[und-o NTC256 A75]\n");
-    k1_ntc256_ns<7, 5>(14080, 2048, 4096);
-    printf("[gen-o-2M BLK256 a75 bm8bn8]\n");
-    k1_blocked256_ns< 8,  8, 7, 5>(61440, 2048, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO10")) {
-    printf("[und-o (7,5)/(6,6) plain + blocked a75]\n");
-    k1_ntc256_ns<7, 5>(14080, 2048, 4096);
-    printf("[gen-qkv NTC256 (7,5)/(6,6)]\n");
-    k1_ntc256_ns<7, 5>(30720, 5120, 2048);
-    k1_ntc256_ns<6, 6>(30720, 5120, 2048);
-    printf("[und-qkv NTC256 (7,5)/(6,6)]\n");
-    k1_ntc256_ns<7, 5>(14080, 5120, 2048);
-    k1_ntc256_ns<6, 6>(14080, 5120, 2048);
-    printf("[gen-qkv-2M NTC256 (7,5)]\n");
-    k1_ntc256_ns<7, 5>(61440, 5120, 2048);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO9")) {
-    printf("[gen-o-2M (7,5) bm12/bm16/bm4 + (6,5) bm12]\n");
-    k1_blocked256_ns<12,  8, 7, 5>(61440, 2048, 4096);
-    k1_blocked256_ns<16,  8, 7, 5>(61440, 2048, 4096);
-    k1_blocked256_ns< 4,  8, 7, 5>(61440, 2048, 4096);
-    k1_blocked256_ns<12,  8, 6, 5>(61440, 2048, 4096);
-    printf("[gen-o-2N (7,5) bm8bn16 + (6,5)/(6,6) variants]\n");
-    k1_blocked256_ns< 8, 16, 7, 5>(30720, 4096, 4096);
-    k1_blocked256_ns< 8, 16, 6, 5>(30720, 4096, 4096);
-    k1_blocked256_ns<12, 16, 6, 6>(30720, 4096, 4096);
-    k1_blocked256_ns< 8,  8, 6, 6>(30720, 4096, 4096);
-    printf("[gen-o (7,5) bm12/bm16]\n");
-    k1_blocked256_ns<12,  8, 7, 5>(30720, 2048, 4096);
-    k1_blocked256_ns<16,  8, 7, 5>(30720, 2048, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO8")) {
-    printf("[plain AlongN (6,6) on the NTC256 winners]\n");
-    k1_ntc256_ns<6, 6>(122880, 4096, 16384);
-    k1_ntc256_ns<6, 6>(61440, 4096, 16384);
-    k1_ntc256_ns<6, 6>(30720, 4096, 16384);
-    k1_ntc256_ns<6, 6>(61440, 16384, 4096);
-    k1_ntc256_ns<6, 6>(61440, 8192, 4096);
-    k1_ntc256_ns<6, 6>(30720, 2048, 16384);
-    k1_ntc256_ns<6, 6>(30720, 10240, 2048);
-    k1_ntc256_ns<6, 6>(14080, 2048, 4096);
-    printf("[blocked (7,6)/(6,7) fit probe on 16384^3]\n");
-    k1_blocked256_ns< 8,  8, 7, 6>(16384, 16384, 16384);
-    k1_blocked256_ns< 8,  8, 6, 7>(16384, 16384, 16384);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO7")) {
-    printf("[(6,6) across the blocked winners]\n");
-    k1_blocked256_ns< 8,  8, 6, 6>(16384, 16384, 16384);
-    k1_blocked256_ns< 8,  8, 6, 6>(32768, 32768, 16384);
-    k1_blocked256_ns< 8,  8, 6, 6>(30720, 30720, 30720);
-    k1_blocked256_ns< 8,  8, 6, 6>(30720, 4096, 8192);
-    k1_blocked256_ns< 8,  8, 6, 6>(30720, 2048, 8192);
-    k1_blocked256_ns< 8,  8, 6, 6>(61440, 8192, 16384);
-    printf("[gen-o family (6,6)]\n");
-    k1_blocked256_ns< 8,  8, 6, 6>(30720, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 6, 6>(61440, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 6, 6>(122880, 2048, 4096);
-    printf("[gen-o-2N (7,5) + bm8bn16 (6,6)]\n");
-    k1_blocked256_ns<16, 16, 7, 5>(30720, 4096, 4096);
-    k1_blocked256_ns< 8, 16, 6, 6>(30720, 4096, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO6")) {
-    printf("[gen-o (7,5)/(8,4)]\n");
-    k1_blocked256_ns< 8,  8, 7, 5>(30720, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 8, 4>(30720, 2048, 4096);
-    printf("[gen-o-2M (7,5)/(8,4)]\n");
-    k1_blocked256_ns< 8,  8, 7, 5>(61440, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 8, 4>(61440, 2048, 4096);
-    printf("[gen-o-4M (7,5)/(6,6)]\n");
-    k1_blocked256_ns< 8,  8, 7, 5>(122880, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 6, 6>(122880, 2048, 4096);
-    printf("[gen-o-2N / 2M+2N (6,6)]\n");
-    k1_blocked256_ns<16, 16, 6, 6>(30720, 4096, 4096);
-    k1_blocked256_ns<16, 16, 6, 6>(61440, 4096, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO5")) {
-    printf("[gen-o-4M (5,6)/(6,5)/(7,4)]\n");
-    k1_blocked256_ns< 8,  8, 5, 6>(122880, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 6, 5>(122880, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 7, 4>(122880, 2048, 4096);
-    printf("[gen-o-2M (6,5)/(7,4)]\n");
-    k1_blocked256_ns< 8,  8, 6, 5>(61440, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 7, 4>(61440, 2048, 4096);
-    printf("[gen-o (6,5)/(7,4)]\n");
-    k1_blocked256_ns< 8,  8, 6, 5>(30720, 2048, 4096);
-    k1_blocked256_ns< 8,  8, 7, 4>(30720, 2048, 4096);
-    printf("[gen-o-2K (6,5)/(7,4)]\n");
-    k1_blocked256_ns< 8,  8, 6, 5>(30720, 2048, 8192);
-    k1_blocked256_ns< 8,  8, 7, 4>(30720, 2048, 8192);
-    printf("[gen-o-2N / 2M+2N (6,5)]\n");
-    k1_blocked256_ns<16, 16, 6, 5>(30720, 4096, 4096);
-    k1_blocked256_ns<16, 16, 6, 5>(61440, 4096, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO4")) {
-    printf("[gen-o-4M bm8bn8]\n");
-    k1_blocked256< 8,  8>(122880, 2048, 4096);
-    printf("[gen-o-2N bm16bn16]\n");
-    k1_blocked256<16, 16>(30720, 4096, 4096);
-    printf("[2M+2N bm16bn16]\n");
-    k1_blocked256<16, 16>(61440, 4096, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO3")) {
-    printf("[2M+2N M=61440 K=4096 N=4096]\n");
-    k1_blocked256<16, 16>(61440, 4096, 4096);
-    k1_blocked256<12, 16>(61440, 4096, 4096);
-    k1_blocked256<20, 16>(61440, 4096, 4096);
-    k1_blocked256<24, 16>(61440, 4096, 4096);
-    k1_blocked256<16,  8>(61440, 4096, 4096);
-    printf("[gen-o-4M M=122880 K=4096 N=2048]\n");
-    k1_blocked256< 8,  8>(122880, 2048, 4096);
-    k1_blocked256<12,  8>(122880, 2048, 4096);
-    k1_blocked256<24,  8>(122880, 2048, 4096);
-    k1_blocked256< 8,  4>(122880, 2048, 4096);
-    printf("[gen-o-2N M=30720 K=4096 N=4096]\n");
-    k1_blocked256<16, 16>(30720, 4096, 4096);
-    k1_blocked256<12, 16>(30720, 4096, 4096);
-    k1_blocked256<24, 16>(30720, 4096, 4096);
-    k1_blocked256< 8, 16>(30720, 4096, 4096);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO2")) {
-    printf("[2M+2N M=61440 K=4096 N=4096]\n");
-    k1_blocked256< 8,  8>(61440, 4096, 4096);
-    k1_blocked256< 8, 16>(61440, 4096, 4096);
-    k1_blocked256<16, 16>(61440, 4096, 4096);
-    k1_blocked256<32, 16>(61440, 4096, 4096);
-    printf("[gen-o-4M M=122880 K=4096 N=2048]\n");
-    k1_blocked256< 8,  8>(122880, 2048, 4096);
-    k1_blocked256<16,  8>(122880, 2048, 4096);
-    k1_blocked256<32,  8>(122880, 2048, 4096);
-    printf("[gen-o-2N M=30720 K=4096 N=4096]\n");
-    k1_blocked256< 8,  8>(30720, 4096, 4096);
-    k1_blocked256< 8, 16>(30720, 4096, 4096);
-    k1_blocked256<16, 16>(30720, 4096, 4096);
-    printf("[gen-o-2K M=30720 K=8192 N=2048]\n");
-    k1_blocked256< 8,  8>(30720, 2048, 8192);
-    k1_blocked256<16,  8>(30720, 2048, 8192);
-    return 0;
-  }
-  if (getenv("K1_TMP_GENO")) {
-    printf("[gen-o BLK256 bm8bn8 K=4096]\n");
-    k1_blocked256< 8,  8>(30720, 2048, 4096);
-    printf("[gen-o-2K BLK256 bm8bn8 K=8192]\n");
-    k1_blocked256< 8,  8>(30720, 2048, 8192);
-    printf("[2M+2N BLK256 bm16bn16 K=4096]\n");
-    k1_blocked256<16, 16>(61440, 4096, 4096);
-    printf("[16384^3 BLK256 bm8bn8 K=16384 (reference)]\n");
-    k1_blocked256< 8,  8>(16384, 16384, 16384);
-    return 0;
-  }
   printf("--- 2K+2N squeeze ---\n");
   printf("[NS_A=5 NS_B=6]\n");
   run_one_k1<32, 256, 5, ClcRasterOrder::AlongN, true, 0, 0, 2, false, 6>(30720, 4096, true);
@@ -3766,9 +3183,8 @@ int main(int argc, char** argv) {
 
   // Push toward 85%: larger K and N sweeps
   printf("\n=== Pushing toward 85%% SOL ===\n");
-  // Combinations that were tried while hunting for 85% SOL. The winners were
-  // promoted into v0_shapes above; what stays here is the surrounding curve,
-  // which is what shows N growing past ~4096 giving the gain back to L2.
+  // The curve around the v0_shapes winners: N growing past ~4096 gives the
+  // gain back to L2.
   struct { const char* lbl; int M, K, N; } push_shapes[] = {
     { "2M+2N",     61440, 4096,  4096 },
     { "2M+4N",     61440, 4096,  8192 },

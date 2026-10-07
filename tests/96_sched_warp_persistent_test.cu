@@ -1,9 +1,8 @@
 // ARCH: sm_90a
 // 96_sched_warp_persistent_test.cu -- runtime correctness for persistent scheduler.
 //
-// Combined test: both ours' and theirs' coverage is exercised in a single
-// binary (each side's main() became run_ours / run_theirs). Kernels live
-// in the new header-only block (blocks/96_sched_warp_persistent.cuh).
+// Two test sets in one binary: run_ours() and run_theirs(). Kernels live
+// in the header-only block (blocks/96_sched_warp_persistent.cuh).
 
 #include <cstdio>
 #include <cstdlib>
@@ -33,7 +32,7 @@ __global__ void sched_warp_persistent_all_test_kernel(
 }
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 static int run_ours() {
@@ -55,7 +54,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 static void cpu_swizzled(int tid, int tm, int /*tn*/, int& m, int& n, int RASTER_GROUP) {

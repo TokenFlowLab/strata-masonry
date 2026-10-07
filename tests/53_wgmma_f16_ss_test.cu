@@ -287,7 +287,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: m64n128k16 (production tile size) ---
+    // --- m64n128k16 (production tile size) ---
     {
         const int NELT = 128 * 64;
         float* d_out; CUDA_CHECK(cudaMalloc(&d_out, NELT * sizeof(float)));
@@ -315,7 +315,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: m64n256k16 (corner-case tile size) ---
+    // --- m64n256k16 (corner-case tile size) ---
     {
         const int NELT = 128 * 128;
         float* d_out; CUDA_CHECK(cudaMalloc(&d_out, NELT * sizeof(float)));

@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 116_tma_load_stage_test.cu -- issue one pipeline-stage load and verify data.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -28,7 +27,7 @@
 #include "116_tma_load_stage.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -55,7 +54,6 @@ __global__ void k(const __grid_constant__ CUtensorMap ta, float* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   std::vector<float> hin(16 * 16);
   for (int i = 0; i < 16 * 16; ++i) hin[i] = (float)i;
   float* din = nullptr; CUDA_CHECK(cudaMalloc(&din, 16 * 16 * 4));
@@ -80,7 +78,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: 116_tma_load_stage -- expect_tx + TMA load composite.
@@ -168,7 +166,6 @@ __global__ void kernel_stage_ab(const __grid_constant__ CUtensorMap tmap_a_in,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

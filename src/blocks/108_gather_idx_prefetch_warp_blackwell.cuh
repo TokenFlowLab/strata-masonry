@@ -5,11 +5,11 @@
 //
 // ARCH: sm_100a
 //
-// Role for the cp.async gather-fused MoE FC1 (K14): a dedicated warp that
+// Role for the cp.async gather-fused MoE FC1: a dedicated warp that
 // runs the persistent CLC tile loop and, for each tile, stages that tile's
 // M_TILE_PER_CTA gather row-indices (perm[]) into a small SMEM ring so the
 // cp.async load warps never stall on perm[] GMEM latency. Mirrors QuACK's
-// `a_prefetch` warp (sonic-moe/quack/quack/gemm_sm100.py:
+// `a_prefetch` warp (quack/gemm_sm100.py:
 // a_prefetch_warp_id / make_a_prefetch_pipeline).
 //
 // It also INHERITS the idle warp's CLC arrive-count role: it drives
@@ -19,8 +19,8 @@
 //
 // perm[] is K-INVARIANT (the 128 row indices for a tile do not depend on
 // the K-block), so the indices are loaded ONCE per tile here and reused by
-// the load warps across all K_BLOCKS -- removing the redundant per-K-block
-// perm reads that K12/K13 incurred.
+// the load warps across all K_BLOCKS -- removing redundant per-K-block
+// perm reads.
 //
 // Index pipeline (this warp = PRODUCER, load warps = CONSUMER):
 //   idx_smem  : int[NUM_IDX_STAGES * M_TILE_PER_CTA] ring of row indices.
@@ -155,7 +155,7 @@ void gather_idx_prefetch_warp_blackwell_1sm(WpCtx& wpc,
 }
 
 /* ============================================================================
- * gather_idx_prefetch_warp_blackwell_2sm<...>(wpc, ...)   [K15]
+ * gather_idx_prefetch_warp_blackwell_2sm<...>(wpc, ...)
  *
  * 2SM (cta_group::2) variant: each cluster CTA stages ITS OWN M_TILE_PER_CTA
  * index slice -- packed rows [m_tile*M_TILE_CLUSTER + peer*M_TILE_PER_CTA,
@@ -164,8 +164,8 @@ void gather_idx_prefetch_warp_blackwell_1sm(WpCtx& wpc,
  * ============================================================================ */
 // PREFETCH_A_L2=true: after staging a tile's gather indices, this warp also
 // issues prefetch.global.L2 over each source row's K-extent, warming L2 ~2
-// tiles ahead of the cp.async load warp (ncu showed the MMA stalls on
-// cp.async completion with a ~29% DRAM-miss tail; prefetching the gather rows
+// tiles ahead of the cp.async load warp (the MMA otherwise stalls on
+// cp.async completion behind a DRAM-miss tail; prefetching the gather rows
 // converts that tail to L2 hits). Needs A_base + K + the row-stride (= K).
 template <int NUM_IDX_STAGES, int M_TILE_PER_CTA, int M_TILE_CLUSTER,
           int PREFETCH_REG_BUDGET = 32,

@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 45_shfl_sync_test.cu -- verify bfly XOR shuffle between pairs.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +16,7 @@
 #include "45_shfl_sync.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -30,7 +29,6 @@ __global__ void k_sh(uint32_t* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 32 * 4));
   k_sh<<<1, 32>>>(d);
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -46,7 +44,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: shfl.sync -- verify broadcast, butterfly, scan, and reductions
@@ -88,7 +86,6 @@ __global__ void shfl_perf_kernel(float* out, int iters) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

@@ -1,4 +1,4 @@
-// test_utils.cuh -- shared test infrastructure. Not a primitive; lives
+// test_helpers.cuh -- shared test infrastructure. Not a primitive; lives
 // outside the numbered dependency chain.
 //
 // Helpers are hoisted out of arch macro guards so the same names work for
@@ -277,7 +277,7 @@ __device__ __forceinline__ void mbarrier_init_helper(
                :: "r"(mbar_smem), "r"(arrive_count));
 }
 
-// (mbarrier_try_wait_parity helpers now live in primitives/33_mbarrier_try_wait.cuh:
+// (mbarrier_try_wait_parity helpers live in primitives/33_mbarrier_try_wait.cuh:
 //   bool mbarrier_try_wait_parity(addr, parity)        single non-blocking check
 //   void mbarrier_wait_parity(addr, parity)   blocking spin loop)
 

@@ -2,8 +2,7 @@
 // 46_setmaxnreg_test.cu -- compile smoke. The instruction only takes effect
 // when the kernel is launched with a per-thread register cap >= N.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "46_setmaxnreg.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_100a
@@ -31,7 +30,6 @@ __global__ void __launch_bounds__(128, 1) k_reg() {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   k_reg<<<1, 128>>>();
   CUDA_CHECK(cudaDeviceSynchronize());
   printf("setmaxnreg.{dec,inc} : compile + run OK\n");
@@ -39,7 +37,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: setmaxnreg -- compile + PTX verification
@@ -53,7 +51,7 @@ __global__ void setmaxnreg_inc_kernel() {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */ printf("46_setmaxnreg: compiled.\n"); PASS(); return 0; }
+  printf("46_setmaxnreg: compiled.\n"); PASS(); return 0; }
 
 
 int main() {

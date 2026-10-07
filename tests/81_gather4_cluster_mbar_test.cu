@@ -6,7 +6,7 @@
 //
 // gather4 has no cta_group::2 form. It must not target a remote mbarrier via
 // the peer-bit trick: that unsupported probe can deadlock. This test covers
-// the deterministic local-wait plus cross-CTA-arrive protocol used by K1.
+// the deterministic local-wait plus cross-CTA-arrive protocol of the 2SM gather path.
 //
 // Build: nvcc -arch=sm_100a tests/81_gather4_cluster_mbar_test.cu -o test_81
 

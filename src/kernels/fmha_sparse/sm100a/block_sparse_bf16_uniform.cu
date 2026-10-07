@@ -38,7 +38,7 @@
 //      blk128 (the other case): K_TILE = 128 = 1 block per K-tile, plain m128 MMA. S is a plain
 //      128 rows x 128 cols tile (1 lane per row), no dual-pack and no half-merge -- = dense.
 //
-// V1.0: every selected block full (all BLOCK tokens valid), Sq==Skv, non-causal, MHA (HQ==HK),
+// Scope: every selected block full (all BLOCK tokens valid), Sq==Skv, non-causal, MHA (HQ==HK),
 // d=128, bf16.
 //
 // Math / assumptions (uniform VSA):
@@ -140,7 +140,7 @@
 #define VSA_BLK128 false
 #endif
 constexpr bool BLK128 = VSA_BLK128;
-// Deferred row-sum (uplift #6) helps blk64 (dual-half softmax) but costs ~2% on
+// Deferred row-sum helps blk64 (dual-half softmax) but costs ~2% on
 // blk128 (plain path): default per block mode, override with -DVSA_DEFER_ROWSUM.
 #ifndef VSA_DEFER_ROWSUM
 #define VSA_DEFER_ROWSUM (!VSA_BLK128)
@@ -173,14 +173,14 @@ constexpr int Q_TILE_BYTES = Q_SUBTILES * Q_SUB_COLS_BYTES;     // blk64 16 KB, 
 //         head-dim half. (256 keys = 4 KV blocks of 64 tokens.)
 //       V-tile (128 hd x 256 tok): split by tokens -- each slot = full 128 hd x one 128-token
 //         half (= 2 KV blocks of 64 tok, one per kv-half).
-//   blk128: a K-tile or V-tile is exactly 32 KB -> ONE slot, waited once -- the dense uniform_inline.cu
+//   blk128: a K-tile or V-tile is exactly 32 KB -> ONE slot, waited once -- the dense fmha_context_bf16_uniform_inline.cu
 //     tile shape.
 //       K-tile: 1 KV block (128 tok) x 128 hd, both head-dim halves in one slot.
 //       V-tile: 128 hd x 128 tok, both token halves in one slot.
 constexpr int KV_RING_SLOT_BYTES = 32 * 1024;
 constexpr int SLOTS_PER_KV_TILE = BLK128 ? 1 : 2;
 // Ring depth in 32 KB slots. SMEM cap 227K: blk64 2*Q(32K) + 4*32K + 2*sO(32K); blk128
-// 2*Q(64K) + 3*32K + 2*sO(64K) (the dense kernel also ran 3 stages at this tile size).
+// 2*Q(64K) + 3*32K + 2*sO(64K) (the dense kernel also uses 3 stages at this tile size).
 constexpr int NUM_KV_STAGES = BLK128 ? 3 : 4;
 
 constexpr int V_BLK_BYTES = HEAD_DIM * SUB_COLS_BYTES;   // 16 KB: one 64-token V^T B128 unit (128 hd x 64 tok)
@@ -1063,7 +1063,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         // VSA: no mask (every selected block is full, non-causal).
 
         // rmax via 4 independent FMNMX3 accumulators (4-way ILP), OLD MAX FOLDED
-        // into accumulator 0 (inline-base uplift #7). S_COLS % 8 == 0.
+        // into accumulator 0. S_COLS % 8 == 0.
         float rmax0 = m_run, rmax1 = -INFINITY, rmax2 = -INFINITY, rmax3 = -INFINITY;
         #pragma unroll
         for (int j = 0; j < S_COLS; j += 8) {
@@ -1075,13 +1075,13 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         float new_m = fmaxf(fmaxf(rmax0, rmax1), fmaxf(rmax2, rmax3));
         float alpha = 0.0f;
         if constexpr (!IS_FIRST) {
-          // FA4 sticky max (uplift #7): a small max drift costs a full O rescale
+          // FA4 sticky max: a small max drift costs a full O rescale
           // downstream; below the threshold keep the old max EXACTLY and publish
           // alpha == 1.0 -- pairs corr's __all_sync(alpha == 1.0f) skip vote.
           const float acc_scale_ = (m_run - new_m) * scale_log2;
           if (acc_scale_ >= -(float)RESCALE_THRESHOLD) { new_m = m_run; alpha = 1.0f; }
           else                     { alpha = ex2_approx_f32(acc_scale_); }
-          // volatile STS publish (uplift #8, MHA form): keeps ptxas from sinking the store past the bar arrive.
+          // volatile STS publish (MHA form): keeps ptxas from sinking the store past the bar arrive.
           sts_f32(alpha_slot_u32, alpha);
         }
         if constexpr (FULL_NAMED_BAR) full_bar_arrive(m_tile, warp_in_group);
@@ -1115,7 +1115,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         if constexpr (SPLIT_P) {
           tcgen05_st_32x32b_x32(p_tmem_addr,      *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
           tcgen05_st_32x32b_x16(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[32]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e: fence orders but does NOT complete the async STTM
+          tcgen05_wait_st();   // RACE FIX: fence orders but does NOT complete the async STTM
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive(smem_ptr_u32(&empty_bar_spo[m_tile]));
           tcgen05_st_32x32b_x16(p_tmem_addr + SPLIT_P_COL, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[SPLIT_P_COL]));
@@ -1281,7 +1281,7 @@ static double run(const Sh& sh, bool verify) {
   CUDA_CHECK(cudaMalloc(&dO,  tq * H * hd * 2));
 
   std::vector<__nv_bfloat16> hQ(tq * H * hd), hK(tq * H * hd), hV(tq * H * hd);
-  const char* load_npy = getenv("LOAD_NPY");   // unified bench: shared Q/K/V + idx from .npy
+  const char* load_npy = getenv("LOAD_NPY");   // Q/K/V + idx from block_sparse_bf16_gen_inputs.py .npy
   if (load_npy) {
     const std::string d(load_npy);
     auto ld = [&](const char* nm, std::vector<__nv_bfloat16>& h) {
@@ -1313,7 +1313,7 @@ static double run(const Sh& sh, bool verify) {
   // ---- q2k index: topk DISTINCT block ids per (b,h,mtile), fixed density (num == topk) ----
   std::vector<int> hq2k_idx((size_t)num_global_q_blocks * max_kv, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
-  if (load_npy) {   // unified bench: head-independent [num_blocks, topk] list, broadcast across heads
+  if (load_npy) {   // LOAD_NPY: head-independent [num_blocks, topk] list, broadcast across heads
     char p[64]; snprintf(p, sizeof p, "/idx_S%d_blk%d.npy", S, BLOCK);
     auto idx = npy_load_vec<int32_t>(std::string(load_npy) + p);
     if (idx.size() != (size_t)num_blocks * topk) { fprintf(stderr, "LOAD_NPY: idx size %zu != %d\n", idx.size(), num_blocks * topk); exit(1); }

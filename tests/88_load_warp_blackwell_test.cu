@@ -13,10 +13,10 @@
 //      (#2 with L2::evict_last hint; pairs with primitive 68 createpolicy).
 //
 // The full-warp-role wrapper `load_warp_blackwell_ntiles_2sm_bf16` is
-// validated at the kernel level by K0 dense_gemm_bf16 (it composes CLC
+// validated at the kernel level by dense_gemm_bf16 (it composes CLC
 // dispatch, sched/idle warps, and the acc-pipeline; smoke-mocking that
 // at the block level adds infrastructure complexity without coverage
-// beyond what K0 already provides).
+// beyond what the kernel already provides).
 //
 // Each test launches a 2x1x1 cluster (cta_group::2) and verifies the loaded
 // SMEM stage 0 contains the expected operand byte pattern after the body
@@ -241,7 +241,7 @@ static int test_tile_2sm_bf16() {
   return 0;
 }
 
-#if 0  // Test 3 removed -- ntiles wrapper validated end-to-end by K0.
+#if 0  // Test 3 disabled -- ntiles wrapper validated end-to-end by dense_gemm_bf16.
 __global__ void __cluster_dims__(2, 1, 1) __launch_bounds__(256, 1)
 test_persistent_2sm_bf16_kernel(
     const __grid_constant__ CUtensorMap tmap_a,
@@ -390,7 +390,7 @@ static int test_persistent_2sm_bf16() {
 // policy. The bytes delivered must still match the seeded GMEM
 // pattern -- the hint affects L2 eviction priority, not transport
 // correctness. This is the producer-consumer end-to-end smoke for
-// step 2's createpolicy primitive paired with primitive 19's
+// primitive 68's createpolicy paired with primitive 19's
 // tma_load_2d_2sm_l2hint.
 
 __global__ void __cluster_dims__(2, 1, 1) __launch_bounds__(256, 1)
@@ -577,7 +577,7 @@ test_tile_2sm_bf16_groupedgemm_kernel(
       mbarrier_init(smem_ptr_u32(&full_bar[s]),       /*count=*/1);
       mbarrier_init(smem_ptr_u32(&empty_bar[s]),      /*count=*/1);
       // throttle_full: all 32 lanes of the load warp arrive (matches
-      // production canonical count in composite 70).
+      // production canonical count in composite 119).
       mbarrier_init(smem_ptr_u32(&throttle_full[s]),  /*count=*/32);
       mbarrier_init(smem_ptr_u32(&throttle_empty[s]), /*count=*/1);
     }

@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-// Shared host interface. The kernel still owns tensors, sparse metadata and launch geometry.
+// Shared host interface. The kernel owns tensors, sparse metadata and launch geometry.
 // Reuse the dense FMHA event/graph timer; never alter clocks or allocate inside its timed loop.
 namespace block_sparse_bf16_benchmark {
 
@@ -63,7 +63,7 @@ double measure(Launch&& launch) {
     return 0.0;
   }
   auto options = fmha_context_bf16_benchmark::options_from_env();
-  // All sparse drivers historically used 3/20, including the now-optional graph path.
+  // Sparse drivers default to WARMUP=3, for both the direct and the graph path.
   options.warmup_iterations = env_count("WARMUP", 3, 0);
   return fmha_context_bf16_benchmark::measure(launch, options);
 }
@@ -77,7 +77,7 @@ inline double tflops(double pairs, int head_dim, double mean_ms) {
   return 4.0 * head_dim * pairs / (mean_ms * 1e9);
 }
 
-// Preserve DUMP_O=<prefix> -> <prefix>.out, raw little-endian FP32 [S,H,D].
+// DUMP_O=<prefix> -> <prefix>.out, raw little-endian FP32 [S,H,D].
 // Every BF16 output element is copied and expanded; no sampling or reference work here.
 inline void dump_output(const __nv_bfloat16* output, size_t elements) {
   const char* prefix = std::getenv("DUMP_O");

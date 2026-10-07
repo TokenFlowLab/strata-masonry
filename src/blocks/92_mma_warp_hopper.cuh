@@ -10,7 +10,7 @@
 // the empty mbarrier. All 128 threads of the warpgroup participate.
 //
 // Composes #29-#33 (mbarrier), #43 (smem_desc_hopper), #53 (wgmma_f16_ss),
-// #59 (wgmma_fence_commit_wait), #69 (mbarrier_phase_tracking).
+// #59 (wgmma_fence_commit_wait), #118 (mbarrier_phase_tracking).
 //
 // Block function:
 //

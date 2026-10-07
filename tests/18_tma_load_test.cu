@@ -2,8 +2,7 @@
 // 18_tma_load_test.cu -- TMA-load a 16x16 FP32 tile from GMEM to SMEM,
 // copy back to GMEM from a consumer thread, verify bytes match.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -27,7 +26,7 @@
 #include "34_fence_proxy_async.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_100a
@@ -59,7 +58,6 @@ __global__ void k_tma(const __grid_constant__ CUtensorMap desc,
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   const int R = 16, C = 16;
   std::vector<float> hIn(R * C);
   for (int i = 0; i < R * C; ++i) hIn[i] = (float)i * 0.125f;
@@ -99,7 +97,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: TMA 2D load (GMEM -> SMEM) -- correctness + timing
@@ -256,7 +254,6 @@ __global__ void tma_load_noswizzle_kernel(
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

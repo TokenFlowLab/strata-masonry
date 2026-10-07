@@ -1,7 +1,7 @@
 // block_sparse_bf16_varlen.cu -- VSA "fine" block-sparse FMHA with VARIABLE BLOCK SIZES
 // (the ragged/varlen VSA), bf16, sm_100a.
 //
-// Same kernel as block_sparse_bf16_uniform.cu (see its header for the full lineage: 16-warp warp-spec body,
+// Same kernel as block_sparse_bf16_uniform.cu (see its header for the shared design: 16-warp warp-spec body,
 // BMM1-ahead pipeline, split-P, blk64 tcgen05.mma.ws Layout-E dual-pack / blk128 plain m128 via
 // the VSA_BLK128 toggle, CLC scheduling, TMA-store epilogue) PLUS variable_block_sizes:
 //
@@ -96,14 +96,13 @@
 #define VSA_BLK128 false
 #endif
 constexpr bool BLK128 = VSA_BLK128;
-// Hot-spin softmax waits (inline-base uplift): the mma waits are hot-spin
-// unconditionally (f22fb2e-era finding: suspend-hint wake latency gates the
-// pipeline); softmax hot-spin is a knob -- the dense kernel gates it
-// !MHA && !IS_CAUSAL, VSA's regime differs (short per-item loops), so bench it.
+// Hot-spin softmax waits: the mma waits are hot-spin unconditionally (suspend-hint
+// wake latency gates the pipeline); softmax hot-spin is a knob -- the dense kernel
+// gates it !MHA && !IS_CAUSAL, VSA's regime differs (short per-item loops).
 #ifndef VSA_SM_HOT
 #define VSA_SM_HOT true
 #endif
-// Deferred row-sum (uplift #6) helps blk64 (dual-half softmax) but costs ~2% on
+// Deferred row-sum helps blk64 (dual-half softmax) but costs ~2% on
 // blk128 (plain path): default per block mode, override with -DVSA_DEFER_ROWSUM.
 #ifndef VSA_DEFER_ROWSUM
 #define VSA_DEFER_ROWSUM (!VSA_BLK128)
@@ -130,7 +129,7 @@ constexpr int Q_SUB_COLS_BYTES = M_TILE * SUB_COLS_BYTES;         // Q subtile s
 //     planes of all 4 blocks; V = 2 within-half token planes), so the MMA starts on plane 0 while
 //     plane 1's TMA is still landing.
 //   blk128: a K or V tile = ONE slot (K: 1 block x 128 hd = 2 hd-atoms in-slot; V: 2 token-atoms
-//     in-slot) -- the dense uniform_inline.cu tile shape.
+//     in-slot) -- the dense fmha_context_bf16_uniform_inline.cu tile shape.
 constexpr int SLOT_BYTES = 32 * 1024;
 constexpr int SLOTS_PER_TILE = BLK128 ? 1 : 2;      // ring slots consumed per K (or V) group
 constexpr int BLK_SUB_BYTES = BLOCK * SUB_COLS_BYTES;    // one block's tokens within a K hd-atom
@@ -148,7 +147,7 @@ constexpr int EX2_FRG_CNT   = S_COLS / 32; // = 4 (per-thread 128 score cols)
 constexpr int EX2_FREQ      = 16;          // FA4 ex2_emu_freq
 constexpr int EX2_RES       = 4;           // FA4 ex2_emu_res
 // Ring depth in 32 KB slots. SMEM cap 227K: blk64 2*Q(32K) + 4*32K + 2*sO(32K); blk128
-// 2*Q(64K) + 3*32K + 2*sO(64K) (the dense kernel also ran 3 stages at this tile size).
+// 2*Q(64K) + 3*32K + 2*sO(64K) (the dense kernel also uses 3 stages at this tile size).
 constexpr int NUM_KV_STAGES = BLK128 ? 3 : 4;
 constexpr int O_COLS = HEAD_DIM;                 // blk64: O dual (per-half partials); blk128: plain
 constexpr int TMEM_TOTAL = 512;                     // S0,S1(128*2)+O0,O1(128*2)=512
@@ -164,7 +163,7 @@ constexpr int CLC_STAGES = 2;
 
 extern __shared__ __align__(1024) uint8_t fmha_smem[];
 
-// mbarrier_wait_parity: now in primitives/33_mbarrier_try_wait.cuh.
+// mbarrier_wait_parity: see primitives/33_mbarrier_try_wait.cuh.
 
 template <bool HOT>
 __device__ __forceinline__
@@ -173,7 +172,7 @@ void mbarrier_wait_parity_sel(uint32_t mbar_smem, uint32_t phase_parity) {
   else               mbarrier_wait_parity_suspend(mbar_smem, phase_parity);
 }
 
-// Lead-predicated tcgen05 issue forms (inline-base uplift, FA4 shape): the elect
+// Lead-predicated tcgen05 issue forms (FA4 shape): the elect
 // predicate guards the INSTRUCTION instead of an if(lead) block -- straight-line
 // SASS, no BSSY/BSYNC reconvergence region per issue site on the pacing warp.
 // ws (Layout E dual-pack) predicated forms -- same pattern over the mma.ws asm
@@ -999,8 +998,8 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         float new_m = fmaxf(m_run, rmax);
         float alpha = 0.0f;
         if (k != 0) {
-          // FA4 sticky max (uplift #7) + volatile STS publish (#8); pairs corr's
-          // __all_sync(alpha == 1.0f) skip vote. No first-step slot write (#11).
+          // FA4 sticky max + volatile STS publish; pairs corr's
+          // __all_sync(alpha == 1.0f) skip vote. No first-step slot write.
           const float acc_scale_ = (m_run - new_m) * scale_log2;
           if (acc_scale_ >= -8.0f) { new_m = m_run; alpha = 1.0f; }
           else                     { alpha = ex2_approx_f32(acc_scale_); }
@@ -1038,17 +1037,17 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         if constexpr (SPLIT_P) {
           tcgen05_st_32x32b_x32(p_tmem_addr,      *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
           tcgen05_st_32x32b_x16(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[32]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e: fence orders but does NOT complete the async STTM
+          tcgen05_wait_st();   // RACE FIX: fence orders but does NOT complete the async STTM
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive(smem_ptr_u32(&empty_bar_spo[m_tile]));
           tcgen05_st_32x32b_x16(p_tmem_addr + SPLIT_P_COL, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[SPLIT_P_COL]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e
+          tcgen05_wait_st();   // RACE FIX
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive(smem_ptr_u32(&full_bar_p_last[m_tile]));
         } else {
           tcgen05_st_32x32b_x32(p_tmem_addr,      *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
           tcgen05_st_32x32b_x32(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[32]>(&p_regs[32]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e
+          tcgen05_wait_st();   // RACE FIX
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive(smem_ptr_u32(&empty_bar_spo[m_tile]));
         }
@@ -1251,7 +1250,7 @@ static double run(const Sh& sh, bool verify) {
   // ---- variable_block_sizes: deterministic random in [VBS_MIN, BLOCK] (the FastVideo test uses
   // 16..64), shared across batch and heads (indexed by block id only, like the triton kernel).
   // VBS_MIN=BLOCK (env VBS_MIN=64/128) -> all blocks full = the uniform case (regression). ----
-  // Shared-input grid is full-block; retain the historical ragged default otherwise.
+  // LOAD_NPY inputs default to full blocks; otherwise VBS_MIN defaults to 16 (ragged).
   const int vbs_min = block_sparse_bf16_benchmark::env_count("VBS_MIN", load_npy ? BLOCK : 16, 1, BLOCK);
   std::vector<int> hvbs(nb);
   for (int i = 0; i < nb; ++i) {

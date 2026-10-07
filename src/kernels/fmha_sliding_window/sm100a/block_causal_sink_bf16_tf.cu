@@ -1,15 +1,13 @@
 // block_causal_sink_bf16_tf.cu -- teacher-forcing training-forward FMHA (block-causal +
 // sink + sliding-window over the [clean|noisy] two-half sequence), sm_100a, 1CTA.
-// Split out from the block-causal-sink kernel; the non-TF inference path lives in
-// block_causal_sink_bf16.cu.
+// The non-TF inference path lives in block_causal_sink_bf16.cu.
 //
 // RoPE sink-delta (HAS_SINK_ROPE_DELTA): sink cols use the rotated q_sink (relativistic correction;
-//   later noisy blocks scroll past the sink, delta>0). Implemented like bcs.cu but for the TF 3-segment
+//   later noisy blocks scroll past the sink, delta>0). Implemented like block_causal_sink_bf16.cu but for the TF 3-segment
 //   layout: host builds per-row q_sink (intra-half block delta); the decode un-caps the clean-sink and
 //   appends it as a q_sink segment (all 3 branches, incl. the straddle scan); the load warp reloads
 //   q_sink before that segment (MMA hands sQ back); mask_s_row_tf splits at sink_tokens (sink tiles keep
 //   c < sink_tokens with q_sink; non-sink tiles keep c >= max(window_start, sink_tokens) with plain q).
-//   Verified vs the triton reference in tf+rope mode.
 //
 
 // ASSUMES (baked in -- the kernel is NOT correct otherwise):
@@ -156,7 +154,7 @@ constexpr int SPLIT_P_COL  = SPLIT_P_N / 2;     // 48 (u32 P cols written before
 constexpr int EX2_FRG_PAIRS = 16;          // 32 elts / fragment = 16 pairs
 constexpr int EX2_FRG_CNT   = K_TILE / 32; // = 4 for K_TILE=128
 // EX2_FREQ (HW-vs-emu cadence) is a flat 16 for all instantiations; defined at the use site.
-// TODO: tuning knob -- try per-instantiation values (FA4 used freq 10 for GQA non-causal).
+// FA4 uses freq 10 for GQA non-causal.
 constexpr int EX2_RES       = 4;           // FA4 ex2_emu_res
 constexpr int EX2_START_FRG = 1;           // FA4 ex2_emu_start_frg (fragment 0 pure-HW; 2SM pairing)
 constexpr int NUM_KV_STAGES = 3;
@@ -331,7 +329,7 @@ __device__ __forceinline__ void decode_workitem(
 //   CLEAN-CONTEXT: (c < ctx_end) && (c < sink_tokens || c >= window_start)   [clean-half keys]
 //   OR NOISY-SELF: (noisy_lo <= c < noisy_hi)                                [own noisy block]
 // Clean queries pass ctx_end=block_end and an empty noisy band (noisy_lo==noisy_hi), which
-// reduces to the blockwise bcs mask. Matches build_plan_visibility kind="teacher_forcing".
+// reduces to the blockwise bcs mask.
 template <int K_TILE, bool USE_R2P_ASM = true>
 __device__ __forceinline__ void mask_s_row_tf(float* scores, int k_offset,
     int ctx_end, int sink_tokens, int window_start, int noisy_lo, int noisy_hi) {
@@ -398,7 +396,7 @@ __device__ __forceinline__ void mask_s_row_tf(float* scores, int k_offset,
 //   USE_CLC          : true = CLC work-stealing sched (w15 sched warp, grid=full problem; wins long S);
 //                      false = static grid-stride loop (w15 idle, grid=#SMs; wins short). Same pipe.
 //   Q_RASTER         : true = q-tile-innermost raster (adjacent work-items share K/V -> hot L2);
-//                      false = kv-head-innermost (the original order).
+//                      false = kv-head-innermost.
 //   MHA              : true = HQ==HK (gqa_group folds to 1; M-tile = 128 tok x 1 head); false = GQA
 //                      (runtime HQ/HK). Body identical; picked by run<MHA>() from main()'s env knob.
 //   LPT              : heaviest-q-tile-first ordering to balance the block-causal load.
@@ -659,8 +657,8 @@ fmha_context_bf16_bcs_tf_kernel(const __grid_constant__ CUtensorMap tmap_q,
           sample, h_kv, q_tile_base, K_TILES, window_tiles, window_hi_tile, clean_window_tiles, clean_window_hi_tile);
 
       int kv_stage = kv_ph.get_stage();
-      // KK: K-first operand wait (unified with 2SM). r1 +9.5 but r2 -6.5 -- kept for
-      // cross-kernel consistency (both kernels: load K-first + wait K-first).
+      // KK: K-first operand wait (unified with 2SM), kept for cross-kernel consistency
+      // (both kernels: load K-first + wait K-first).
       wp_begin(warp_prof_ctx, WP_MMA_WAIT_FULL_K);
       mbarrier_wait_parity(smem_ptr_u32(&full_bar[kv_stage]), kv_ph.get_phase());
       kv_ph.advance();
@@ -1039,7 +1037,7 @@ fmha_context_bf16_bcs_tf_kernel(const __grid_constant__ CUtensorMap tmap_q,
           if (!skip) {
             // O(g-1) is done: BMM1(g) trails BMM2(g-1) in the in-order tcgen05 pipe.
             const uint32_t o_tmem_addr = tmem_base + (uint32_t)(2 * S_COLS + i * O_COLS) + ((uint32_t)(corr_warp_id * 32) << 16);
-            // x16 chunks: x64 spills the 80-reg corr budget; x32 now neutral -- keep x16.
+            // x16 chunks: x64 spills the 80-reg corr budget; x32 is neutral -- keep x16.
             const float2 alpha2 = f32x2_splat(alpha);
             // per-chunk LDTM -> FMUL2 -> STTM, no per-chunk waits; one trailing wait::st drains.
             #pragma unroll
@@ -1506,8 +1504,7 @@ static void cpu_fmha_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
 
 
 // CPU reference for teacher-forcing ([clean|noisy]). Keep key j (per query token i,
-// seqlen = 2*tokens_per_half) iff clean-context OR noisy-self (matches build_plan_visibility
-// kind="teacher_forcing"; verified vs the reference in python).
+// seqlen = 2*tokens_per_half) iff clean-context OR noisy-self.
 static void cpu_fmha_ref_tf(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
                             const __nv_bfloat16* hV, float* hO,
                             const std::vector<int>& q_cumsum, const std::vector<int>& k_cumsum,
@@ -1530,7 +1527,7 @@ static void cpu_fmha_ref_tf(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
         const int q_pos_abs = q_lo + i;
         int ctx_end, win_start, noisy_lo, noisy_hi;
         if (i < tokens_per_half) {                              // clean query
-          int nominal_block_end = (i / tokens_per_block + 1) * tokens_per_block;   // partial-block fix
+          int nominal_block_end = (i / tokens_per_block + 1) * tokens_per_block;   // partial-last-block correctness
           ctx_end = nominal_block_end < tokens_per_half ? nominal_block_end : tokens_per_half;
           win_start = nominal_block_end - rolling_window_tokens;
           if (win_start < 0) win_start = 0;
@@ -1648,7 +1645,7 @@ static double run(const Shape& shape, bool verify) {
   std::vector<__nv_bfloat16> hQ(total_q_tokens * shape.num_q_heads * shape.head_dim),
                              hK(total_k_tokens * shape.num_kv_heads * shape.head_dim),
                              hV(total_k_tokens * shape.num_kv_heads * shape.head_dim);
-  const char* load_npy = getenv("LOAD_NPY");   // unified bench: shared Q/K/V from .npy [L,H,D]
+  const char* load_npy = getenv("LOAD_NPY");   // Q/K/V from block_causal_sink_bf16_gen_inputs.py .npy [L,H,D]
   if (load_npy) {
     const std::string d(load_npy);
     auto ld = [&](const char* nm, std::vector<__nv_bfloat16>& h) {
@@ -1797,28 +1794,24 @@ static double run(const Shape& shape, bool verify) {
 
   // Compile-time kernel config (see the knob docs near the top of this file).
   // FA4-matched config: static persistent sched (USE_CLC=false), softmax throttle,
-  // ex2_emu, split_P, named-barrier scale handshake -- mirrors fa4_gen.py's GEN config.
+  // ex2_emu, split_P, named-barrier scale handshake -- mirrors FA4's GEN config.
   constexpr bool FULL_NAMED_BAR = true, EX2_EMU = true, SPLIT_P = true,
                  SOFTMAX_THROTTLE = true, Q_RASTER = true;
-  // Named-bar + throttle restored after FULL softmax-body convergence to the 2SM's proven
-  // form (paid-l over the bar, no first-step slot write, sticky max + -inf guard, deferred
-  // row-sum, multi-diagonal causal masking). Gated: gqa_group_size-short F4 x8, mha-mid F4 stress 30x3,
-  // 156-point matrix.
-  // Named-bar safety (2SM protocol, ported 2026-07-11): the l publish rides the SAME
+  // Named-bar + throttle rely on the 2SM softmax-body form (paid-l over the bar, no first-step
+  // slot write, sticky max + -inf guard, deferred row-sum, multi-diagonal causal masking).
+  // Named-bar safety (2SM protocol): the l publish rides the SAME
   // named bar as the alphas and the corr epilogue does the matching bar.sync -- arrives
   // and syncs are 1:1 per work item, every scale-slot release paid by a same-band sync,
   // so at most one arrive is ever outstanding on a bar id (the bare counter cannot be
-  // double-arrived at item boundaries). Gated by STRESS_N=30 x3 at mha-mid FILL=4 +
-  // gqa_group_size-short FILL=4 x8 + the 156-point verify matrix.
+  // double-arrived at item boundaries).
   // SOFTMAX_THROTTLE=false: the throttle's shifted release order desyncs the NAMED-BAR
   // alpha/l pairing at work-item boundaries (bare counter, no phase identity) -- corr
-  // reads a one-slot-stale alpha/l stream; intermittent at many-items-per-CTA shapes
-  // (gqa_group_size-short FILL=4: ~40% fail rate). mbarrier handshake with throttle is clean but
-  // costs -13/-39/-26 (mha/gqa_group_size/causal); throttle-off costs -1/-10/-16 and is clean 5/5.
+  // reads a one-slot-stale alpha/l stream; intermittent at many-items-per-CTA shapes.
+  // The mbarrier handshake with throttle is clean but slower than throttle-off.
   // Scheduler per mask: causal = CLC + LPT (dynamic stealing over heaviest-first order --
-  // variable K-loop lengths; +30 and +36 at row-6 FILL=3). Non-causal = static grid-stride
-  // (uniform work; static step CLC here).
-  constexpr bool USE_CLC = false;   // PROBE: static + swizzle (FA4's causal config)
+  // variable K-loop lengths). Non-causal = static grid-stride
+  // (uniform work; static beat CLC here).
+  constexpr bool USE_CLC = false;   // static + swizzle (FA4's causal config)
   auto kernel_fn = &fmha_context_bf16_bcs_tf_kernel<32, FULL_NAMED_BAR, EX2_EMU, SPLIT_P, SOFTMAX_THROTTLE, USE_CLC, Q_RASTER, MHA, LPT, 8, HAS_SINK_ROPE_DELTA>;
   CUDA_CHECK(cudaFuncSetAttribute(kernel_fn, cudaFuncAttributeMaxDynamicSharedMemorySize, (int)smem));
 
@@ -2004,7 +1997,7 @@ static double run(const Shape& shape, bool verify) {
 int main() {
   CUDA_CHECK(cudaFree(0));
   CUDA_CHECK(cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 64 * 1024 * 1024));
-  printf("K2 fmha_context_bf16 GEN (warp-spec, 2 M-tiles) sm_100a\n"
+  printf("fmha_context_bf16 GEN (warp-spec, 2 M-tiles) sm_100a\n"
          "=====================================\n");
 
   Shape s{};
@@ -2057,8 +2050,7 @@ int main() {
   // CPU fp32 reference is O(B*HQ*S^2*D) -- infeasible at long S; verify only for small S
   // (override with NOVERIFY=1).
   const bool verify = getenv("NOVERIFY") ? false : (S <= 1024 || getenv("VERIFY") != nullptr);
-  constexpr bool LPT = true;    // heaviest-first causal balance (FA4 lpt=is_causal); the old
-                                // 'neutral' verdict was measured under CLC -- static sched needs it
+  constexpr bool LPT = true;    // heaviest-first causal balance (FA4 lpt=is_causal); static sched needs it
   // teacher-forcing (masked). GQA is orthogonal: same positional mask, q-heads share a kv-head.
   if (mha) { if (s.has_delta) run</*MHA=*/true,  /*LPT=*/LPT, /*HAS_SINK_ROPE_DELTA=*/true >(s, verify);
              else             run</*MHA=*/true,  /*LPT=*/LPT, /*HAS_SINK_ROPE_DELTA=*/false>(s, verify); }

@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 38_barrier_cluster_test.cu -- cluster-wide barrier across 2 CTAs.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +16,7 @@
 #include "38_barrier_cluster.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -31,7 +30,6 @@ k_cbar(int* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_cbar<<<2, 64>>>(d);
@@ -44,7 +42,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: barrier.cluster -- compile + PTX verification
@@ -58,11 +56,11 @@ __global__ void barrier_cluster_kernel() {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */ printf("38_barrier_cluster: compiled.\n"); PASS(); return 0; }
+  printf("38_barrier_cluster: compiled.\n"); PASS(); return 0; }
 
 
 // =============================================================================
-// Combined sem + aligned cluster barriers (Phase 3 HIGH)
+// Combined sem + aligned cluster barriers
 // =============================================================================
 
 // Two clustered CTAs, each running the new sem+aligned wrappers in

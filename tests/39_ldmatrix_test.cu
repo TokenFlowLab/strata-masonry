@@ -4,8 +4,7 @@
 // smoke-tests the asm only; the exact register -> (row,col) mapping is in
 // the CuTe layout traits).
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +21,7 @@
 #include "40_stmatrix.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -44,7 +43,6 @@ __global__ void k_ld(const __half* gin, uint32_t* regs_out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   std::vector<__half> hIn(16 * 16);
   for (int i = 0; i < 16 * 16; ++i) hIn[i] = __float2half((float)i);
   __half* dIn = nullptr; CUDA_CHECK(cudaMalloc(&dIn, 16 * 16 * 2));
@@ -63,7 +61,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: ldmatrix.x4 + stmatrix.x4 round-trip
@@ -111,7 +109,6 @@ __global__ void ldmatrix_stmatrix_kernel(const half* __restrict__ gmem_in,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

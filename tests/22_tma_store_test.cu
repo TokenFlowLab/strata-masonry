@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 22_tma_store_test.cu -- write pattern to SMEM, TMA-store to GMEM, verify.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,7 +23,7 @@
 #include "34_fence_proxy_async.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -43,7 +42,6 @@ __global__ void k_tma_store(const __grid_constant__ CUtensorMap desc) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   float* dOut = nullptr; CUDA_CHECK(cudaMalloc(&dOut, 16 * 16 * 4));
   CUDA_CHECK(cudaMemset(dOut, 0, 16 * 16 * 4));
   CUtensorMap desc;
@@ -65,7 +63,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: TMA 2D store (SMEM -> GMEM) -- correctness + timing
@@ -133,7 +131,6 @@ __global__ void tma_store_l2hint_kernel(const __grid_constant__ CUtensorMap tmap
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 
@@ -229,7 +226,7 @@ static int run_theirs() {
 
 
 // =============================================================================
-// TMA reduction stores (Round 4h): cp.reduce.async.bulk.tensor.{add,min,max}
+// TMA reduction stores: cp.reduce.async.bulk.tensor.{add,min,max}
 // =============================================================================
 
 // One CTA writes a known SMEM tile through a reduction-store tensormap.

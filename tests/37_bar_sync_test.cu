@@ -2,8 +2,7 @@
 // 37_bar_sync_test.cu -- two warp groups sync at separate named barriers,
 // then exchange via a counter they both increment.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "37_bar_sync.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -44,7 +43,6 @@ __global__ void k_bar(int* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 8));
   CUDA_CHECK(cudaMemset(d, 0, 8));
   k_bar<<<1, 128>>>(d);
@@ -59,7 +57,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: bar.sync (named barriers) + barrier.cta.red.popc
@@ -120,7 +118,6 @@ __global__ void red_popc_kernel(uint32_t* out) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 
@@ -193,7 +190,7 @@ static int run_theirs() {
 }
 
 
-// Round 4h: barrier.cta.red.{and,or}.aligned + barrier.cta.arrive.aligned.
+// barrier.cta.red.{and,or}.aligned + barrier.cta.arrive.aligned.
 // 64 threads in 1 CTA (= 2 warps). Verifies:
 //   - barrier_cta_red_and  : returns true iff every thread's pred is true
 //   - barrier_cta_red_or   : returns true iff at least one thread's pred is true

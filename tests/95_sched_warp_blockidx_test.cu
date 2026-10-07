@@ -1,9 +1,8 @@
 // ARCH: sm_90a
 // 95_sched_warp_blockidx_test.cu -- runtime correctness for blockIdx scheduler.
 //
-// Combined test: both ours' and theirs' coverage is exercised in a single
-// binary (each side's main() became run_ours / run_theirs). Kernels live
-// in the new header-only block (blocks/95_sched_warp_blockidx.cuh).
+// Two test sets in one binary: run_ours() and run_theirs(). Kernels live
+// in the header-only block (blocks/95_sched_warp_blockidx.cuh).
 
 #include <cstdio>
 #include <cstdlib>
@@ -38,7 +37,7 @@ __global__ void sched_warp_blockidx_all_patterns_test_kernel(
 }
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 static int run_ours() {
@@ -58,7 +57,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // CPU reference implementations (mirror device composite code).

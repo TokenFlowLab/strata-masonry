@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 50_atom_global_test.cu -- 32 threads each add 1 -> counter == 32.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "50_atom_global.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -29,7 +28,6 @@ __global__ void k_atom(uint32_t* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_atom<<<1, 32>>>(d);
@@ -42,7 +40,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: atom.global atomics -- verify correctness + timing
@@ -65,7 +63,6 @@ __global__ void atomic_cas_kernel(uint32_t* addr, uint32_t compare, uint32_t val
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     const int BLOCKS = 128, THREADS = 256, EXPECTED = BLOCKS * THREADS;
     bool all_pass = true;
@@ -189,7 +186,7 @@ static int run_sem_scope() {
     else { FAIL("some sem/scope subtests failed"); return 1; }
 }
 
-// MED items: signed min/max, bitwise, cas.b64
+// Signed min/max, bitwise, cas.b64
 __global__ void k_atom_min_s32(int32_t* addr) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     atom_global_min_s32(addr, -tid);  // min over -[0..n-1] = -(n-1)
@@ -289,7 +286,7 @@ static int run_med() {
     }
 
     if (all_pass) { PASS(); return 0; }
-    else { FAIL("MED subtests failed"); return 1; }
+    else { FAIL("signed/bitwise/cas.b64 subtests failed"); return 1; }
 }
 
 int main() {

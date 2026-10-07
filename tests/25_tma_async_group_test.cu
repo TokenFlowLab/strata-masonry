@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 25_tma_async_group_test.cu -- bulk commit/wait covered by #22. Compile smoke.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,7 +20,7 @@
 #include "34_fence_proxy_async.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -33,7 +32,6 @@ __global__ void k_group() {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   k_group<<<1, 32>>>();
   CUDA_CHECK(cudaDeviceSynchronize());
   printf("cp.async.bulk.commit/wait_group : compile OK\n");
@@ -41,7 +39,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: TMA bulk async-group commit/wait -- correctness + timing
@@ -108,7 +106,6 @@ __global__ void multi_store_group_kernel(
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));  // init driver API
 
     // Allocate 3 GMEM tiles

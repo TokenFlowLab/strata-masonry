@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 21_tma_load_prefetch_test.cu -- prefetch is a hint; compile smoke.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +22,7 @@
 #include "25_tma_async_group.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -34,7 +33,6 @@ __global__ void k_prefetch(const __grid_constant__ CUtensorMap desc) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   std::vector<float> hIn(16 * 16, 1.f);
   float* dIn = nullptr; CUDA_CHECK(cudaMalloc(&dIn, 16 * 16 * 4));
   CUDA_CHECK(cudaMemcpy(dIn, hIn.data(), 16 * 16 * 4, cudaMemcpyHostToDevice));
@@ -50,7 +48,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: TMA L2 prefetch (cp.async.bulk.prefetch.tensor.2d)
@@ -157,7 +155,6 @@ __global__ void plain_load_kernel(
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

@@ -2,8 +2,7 @@
 // 41_smem_swizzle_test.cu -- exercise the swizzle math on host data and
 // verify it is a bijection within an 8-row atom.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,14 +18,13 @@
 #include "41_smem_swizzle.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
 
 
 static int run_ours() {
-  /* (orig args dropped) */
   for (int swiz : { 32, 64, 128 }) {
     std::set<uint32_t> seen;
     for (uint32_t row = 0; row < 8; ++row) {
@@ -49,7 +47,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: smem_swizzle XOR math (B32/B64/B128)
@@ -91,7 +89,6 @@ __global__ void swizzle_perf_kernel(uint32_t* out, int iters) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

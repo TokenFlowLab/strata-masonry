@@ -55,19 +55,6 @@
 //      9.7.18.10.10.1 (tcgen05.mma.cta_group::2)
 //      9.7.18.12.1 (tcgen05.commit.cta_group::2.multicast::cluster)
 //      9.7.18.5 (Issue Granularity -- one thread per CTA-pair issues commit)
-//
-// Designed off V56 from program/pl_gemm_gb200/pl_gemm.cu lines 9468-9961.
-//
-// V56 reference: gemm_v56(...) in program/pl_gemm_gb200/pl_gemm.cu
-//   line 9514-9517 -- mbar init (acc_full = 1, acc_empty = 256)
-//   line 9727       -- producer state init (stage=0, phase=1; phase-1 trick)
-//   line 9747-9749  -- producer acquire (MBARRIER_TRY_WAIT_PARITY on acc_empty)
-//   line 9788       -- producer commit (tcgen05_commit_2sm_multicast_v56 on acc_full)
-//   line 9791-9792  -- producer state advance (stage^=1; phase flips when stage wraps to 0)
-//   line 9814       -- consumer state init (stage=0, phase=0)
-//   line 9867-9868  -- consumer wait (mbarrier_try_wait_parity_nb_v56 on acc_full)
-//   line 9902       -- consumer release (mbarrier_arrive_peer_sm0 on acc_empty)
-//   line 9939-9940  -- consumer state advance (stage^=1; phase flips when stage wraps to 0)
 
 #pragma once
 #if defined(PL_AGENTIC_SM100A) || defined(PL_AGENTIC_SM103A)
@@ -203,12 +190,6 @@ void acc_pipeline_2bank_consumer_wait(AccPipeline2BankBars bars,
 //     the AND is a no-op; all 128 EPI threads arrive on the local mbar.
 //   - `mbarrier.arrive.shared::cluster.b64` is legal in non-cluster
 //     launches (the implicit cluster has size 1 and resolves to .cta).
-//
-// TODO: rename to `acc_pipeline_2bank_consumer_release_cluster` to mirror
-// `producer_commit_cluster` / `producer_commit_cta` naming. Deferred --
-// would require threading a CTA_GROUP template param into block 93's
-// `epi_warp_blackwell_1tile_1sm2sm_bf16` to dispatch between _cluster
-// and _cta variants at every call site.
 __device__ __forceinline__
 void acc_pipeline_2bank_consumer_release(AccPipeline2BankBars bars,
                                          const AccPipeline2BankState& s) {

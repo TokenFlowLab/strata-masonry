@@ -15,7 +15,7 @@
 // PTX:    9.7.18.11.1 (tcgen05.fence)
 //
 __device__ __forceinline__ void tcgen05_fence_before_thread_sync() {
-  asm volatile("tcgen05.fence::before_thread_sync;\n" ::: "memory");  // memory clobber: without it the compiler can detach/drop the fence from the surrounding stores (P-publish race, 2026-07-14)
+  asm volatile("tcgen05.fence::before_thread_sync;\n" ::: "memory");  // memory clobber: without it the compiler can detach/drop the fence from the surrounding stores (P-publish race)
 }
 
 __device__ __forceinline__ void tcgen05_fence_after_thread_sync() {

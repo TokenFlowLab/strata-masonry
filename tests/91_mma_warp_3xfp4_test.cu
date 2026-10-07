@@ -2,13 +2,13 @@
 // ARCH: sm_103a
 // 91_mma_warp_3xfp4_test.cu -- runtime smoke test for block 91 (mma_warp_3xfp4).
 //
-// The block is now a __device__ template (blocks/91_mma_warp_3xfp4.cuh).
+// The block is a __device__ template (blocks/91_mma_warp_3xfp4.cuh).
 // This test owns the __global__ wrapper that calls into the block. It
 // instantiates with cta_group::1 and ::2 and a `dont_run` flag set to 0
 // so the kernel returns before engaging the K-loop -- no producer is
 // wired here. The launch verifies the kernel compiles + loads on the
 // GPU; SASS contains the K-loop mnemonics (verified separately by
-// test 75 + cuobjdump).
+// test 124 + cuobjdump).
 
 #include <cstdio>
 #include <cuda_runtime.h>
@@ -18,7 +18,7 @@
 #if !K_LOOP_3XFP4_DEPS_AVAILABLE
 
 int main() {
-    std::printf("[SKIP] 91_mma_warp_3xfp4 -- composite 75 deps not yet on disk; "
+    std::printf("[SKIP] 91_mma_warp_3xfp4 -- composite 124 deps not available; "
                 "header-only block requires alloc/dealloc/relinquish/commit/cp/"
                 "fence/mbarrier/cluster-barrier. Standalone primitives 6, 16, 17, "
                 "65 (sm_103a-only) are validated.\n");

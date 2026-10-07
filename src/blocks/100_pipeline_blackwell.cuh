@@ -14,8 +14,7 @@
 // What this scaffold proves: every pipeline mbarrier can be
 // init'd, cycled by its real producer/consumer warp roles, and torn
 // down across `num_tiles` iterations + tcgen05 alloc/dealloc + cluster
-// barriers without hanging. Equivalent to the "skeleton" K0 used in
-// early bring-up before TMA / MMA / EPI bodies were added.
+// barriers without hanging.
 //
 // USAGE: copy-as-template scaffold, NOT a #include target. New kernels
 // start by copy-pasting this body, then replace the role stubs:
@@ -75,7 +74,7 @@
 //   NUM_STAGES -- mainloop ring depth (typical 4-6).
 // Args:
 //   num_tiles  -- number of CLC-served tiles to cycle (per persistent
-//                 cluster). Skeleton uses CLC try_cancel like K0; the
+//                 cluster). Skeleton uses CLC try_cancel; the
 //                 host is expected to launch (gridDim.x = 2 * num_tiles)
 //                 so all tiles get cancelled before exit.
 //
@@ -238,7 +237,7 @@ pipeline_blackwell_skeleton_kernel() {
         const int s = empty_ph.get_stage();
         mbarrier_wait_parity(smem_ptr_u32(&empty[s]),
                              empty_ph.get_phase());
-        // Real K0's TMA auto-arrives full[s] with expect_tx; here we
+        // A real kernel's TMA auto-arrives full[s] with expect_tx; here we
         // substitute a manual arrive, lane-gated to keep the count at 1
         // (arrive_count=1; an unguarded warp arrive would land 32x and
         // flip the bar's phase 32 times).

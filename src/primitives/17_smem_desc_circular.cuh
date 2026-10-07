@@ -16,7 +16,7 @@
 // 3-buffer rotation.
 //
 // Issuer: any thread; output is fed into a later tcgen05.{mma,cp} via the
-// k_loop_3xfp4 composite (file 75).
+// k_loop_3xfp4 composite (file 124).
 // PTX:    9.7.18.4.1 (descriptor format), 9.7.18.3.1.2 (absolute address mode for K=48B)
 //
 #include "16_tmem_desc_byte_addr.cuh"
@@ -33,7 +33,7 @@ struct CircularSmemBuffers {
 // The hardware reads from `buf[(phase) % 3]` with `next_start = buf[(phase+1) % 3]`
 // for the first half, then wraps. Pass the K-phase index so we select the
 // correct (start, next) pair. K-phases run 0..7 in an 8-phase k_loop_3xfp4
-// composite (file 75); phases that select the same (start, next) pair share
+// composite (file 124); phases that select the same (start, next) pair share
 // the same descriptor.
 __device__ __forceinline__ uint64_t build_circular_smem_desc(
     CircularSmemBuffers const& bufs, int phase)

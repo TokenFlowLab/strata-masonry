@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 83_grouped_gemm_tile_map_test.cu -- verify group boundaries + within-group coords.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +16,7 @@
 #include "83_grouped_gemm_tile_map.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -36,7 +35,6 @@ __global__ void k(int* out,
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int offsets[] = { 0, 6, 10, 16 };  // 3 groups: 6, 4, 6 tiles
   int tm[] = { 2, 2, 3 };  // rows per group
   int tn[] = { 3, 2, 2 };  // cols per group
@@ -72,7 +70,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: grouped GEMM tile mapping (tile_id -> group, tile_m, tile_n)
@@ -115,7 +113,6 @@ __global__ void grouped_map_perf_kernel(const int* group_cumul,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

@@ -48,8 +48,7 @@ __device__ __host__ __forceinline__ uint64_t build_smem_desc_blackwell(
 }
 
 // Advance a descriptor's ADDRESS field in place by `inc` (units of 16 B), i.e. the low 32-bit
-// word; the hi word (LBO/SBO/swizzle) is k-invariant. Equivalent to trtllm-gen's
-// `incrSmemAddr` (trtllm/dev/SmemTile.h:121), which does `tmp.u32[0] += offset`.
+// word; the hi word (LBO/SBO/swizzle) is k-invariant.
 //
 // Gotcha: asm VOLATILE is load-bearing. A plain `d += inc` lets nvcc CSE descriptors that
 // share a value into parallel base+imm forms, each paying a UMOV to rematerialise the hi

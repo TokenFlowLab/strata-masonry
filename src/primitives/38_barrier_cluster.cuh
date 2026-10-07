@@ -32,7 +32,7 @@ void barrier_cluster_arrive_aligned() {
   asm volatile("barrier.cluster.arrive.aligned;\n" ::: "memory");
 }
 
-// Combined sem + aligned forms (Phase 3 HIGH). Required when a
+// Combined sem + aligned forms. Required when a
 // warp-uniform arrive is also publishing prior writes to peer CTAs --
 // the canonical cluster pipeline pattern.
 __device__ __forceinline__
@@ -62,7 +62,7 @@ void barrier_cluster_wait_aligned() {
   asm volatile("barrier.cluster.wait.aligned;\n" ::: "memory");
 }
 
-// Combined sem + aligned for wait side (Phase 3 HIGH).
+// Combined sem + aligned for wait side.
 __device__ __forceinline__
 void barrier_cluster_wait_acquire_aligned() {
   asm volatile("barrier.cluster.wait.acquire.aligned;\n" ::: "memory");
@@ -76,7 +76,7 @@ void barrier_cluster_sync() {
   barrier_cluster_wait();
 }
 // Number of CTAs along the cluster's x dimension (%cluster_nctaid.x). Equivalent to
-// cute::cluster_shape().x, which is what trtllm's getClusterDimX() returns (CutlassUtils.h:771).
+// cute::cluster_shape().x.
 __device__ __forceinline__ uint32_t cluster_dim_x() {
   uint32_t n;
   asm volatile("mov.u32 %0, %%cluster_nctaid.x;\n" : "=r"(n));

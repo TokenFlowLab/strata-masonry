@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 35_fence_mbarrier_init_test.cu -- compile smoke.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "35_fence_mbarrier_init.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -34,7 +33,6 @@ __global__ void k_f() {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   k_f<<<1, 32>>>();
   CUDA_CHECK(cudaDeviceSynchronize());
   printf("fence.mbarrier_init.release : compile OK\n");
@@ -42,7 +40,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: fence.mbarrier_init.release -- compile + PTX verification
@@ -52,7 +50,7 @@ __global__ void fence_mbarrier_kernel() {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */ printf("35_fence_mbarrier_init: compiled.\n"); PASS(); return 0; }
+  printf("35_fence_mbarrier_init: compiled.\n"); PASS(); return 0; }
 
 
 int main() {

@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 63_cvt_f32_to_f16_bf16_test.cu -- verify pair-pack cvt matches __float2half.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,7 +18,7 @@
 #include "63_cvt_f32_to_f16_bf16.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -47,7 +46,6 @@ __global__ void k_cvt_modifiers(uint32_t* out16, uint16_t* outs) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 8));
   k_cvt<<<1, 1>>>(d);
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -91,7 +89,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: cvt.rn.f16/bf16.f32 -- FP32 -> FP16/BF16 round-trip
@@ -129,7 +127,6 @@ __global__ void cvt_perf_kernel(const float* in, uint32_t* out, int iters) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

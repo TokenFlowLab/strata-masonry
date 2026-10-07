@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 64_cvt_f32_to_fp8_test.cu -- compile smoke + non-zero output check.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "64_cvt_f32_to_fp8.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -35,7 +34,6 @@ __global__ void k_cvt(uint32_t* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 24));
   k_cvt<<<1, 1>>>(d);
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -53,7 +51,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: cvt.rn.satfinite.{e4m3,e5m2}.f32 -- FP32 -> FP8 round-trip
@@ -88,7 +86,6 @@ __global__ void cvt_fp8_perf_kernel(const float* in, uint16_t* out, int iters) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

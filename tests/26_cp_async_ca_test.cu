@@ -2,8 +2,7 @@
 // 26_cp_async_ca_test.cu -- cp.async.ca copies GMEM to SMEM, then each
 // thread reads its SMEM slot and writes to an output buffer for verification.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,7 +18,7 @@
 #include "26_cp_async_ca.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -36,7 +35,6 @@ __global__ void k_cpa(const uint32_t* gin, uint32_t* gout) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   std::vector<uint32_t> hin(128);
   for (int i = 0; i < 128; ++i) hin[i] = 0xA0000000u + i;
   uint32_t *din = nullptr, *dout = nullptr;
@@ -57,7 +55,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: cp.async.ca -- GMEM->SMEM->GMEM roundtrip correctness + timing
@@ -145,7 +143,6 @@ static bool run_variant(const char* name, void (*kernel)(const uint32_t*, uint32
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
     all_pass &= run_variant("cp.async.ca.16", cp_async_ca_16_kernel, N16);

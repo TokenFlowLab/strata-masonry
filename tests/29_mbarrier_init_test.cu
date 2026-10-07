@@ -2,8 +2,7 @@
 // 29_mbarrier_init_test.cu -- init an mbarrier, arrive on it, verify the
 // phase flips (indirectly via try_wait returning true).
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,7 +19,7 @@
 #include "29_mbarrier_init.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -41,7 +40,6 @@ __global__ void k_init(int* ok) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_init<<<1, 32>>>(d);
@@ -54,7 +52,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: mbarrier.init / mbarrier.inval -- compile + PTX verification
@@ -70,7 +68,6 @@ __global__ void mbarrier_init_kernel() {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     printf("29_mbarrier_init: compiled successfully.\n");
     PASS();
     return 0;

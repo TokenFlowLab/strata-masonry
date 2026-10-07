@@ -1,9 +1,9 @@
 // block_sparse_bf16_uniform_blk256.cu -- VSA "fine" block-sparse FMHA, bf16, 1CTA,
 // 256-token sparse block, sm_100a.
 //
-// Forked from block_sparse_bf16_uniform.cu (which selects a 64- or 128-token sparse block via
+// Variant of block_sparse_bf16_uniform.cu (which selects a 64- or 128-token sparse block via
 // the VSA_BLK128 toggle). Here the sparse block is FIXED at 256 tokens, the like-for-like match to
-// FA4's vsa256 fast path (its minimum sparse block is 256). The 16-warp warp-specialized body, the
+// FA4's block-sparse path (its minimum sparse block is 256). The 16-warp warp-specialized body, the
 // BMM1-ahead software pipeline, the softmax<->correction<->MMA barrier contract, persistent
 // scheduling (USE_CLC / grid-stride), split-P and the TMA-store epilogue are inherited unchanged
 // from the dense fmha_context_bf16_uniform_inline.cu.
@@ -23,7 +23,7 @@
 //     both M-tiles' MMAs issue against, and the caller frees (bmm1/bmm2 do no ring wait/commit):
 //       K(0) | { V(k), K(k+1) } per step | V(last)
 //     i.e. the load warp issues 2*num_k_tiles tiles, half the per-M-tile version's 4*num_k_tiles.
-//   - GOTCHA THAT MADE THIS LOOK IMPOSSIBLE (cost a full debug cycle -- do not undo it): the shared
+//   - GOTCHA (do not undo it): the shared
 //     stream is only correct if the MMA warp WALKS its SMEM descriptors with desc_add_lo (asm volatile,
 //     32-bit add on the low word). With plain uint64 descriptor arithmetic the compiler CSEs the
 //     identical descriptor across the two M-tiles' MMA groups into base+imm forms that rematerialize
@@ -31,10 +31,8 @@
 //     row 0 of the tile, so that tile contributes nothing to a data-varying V. It only bit the tiles
 //     whose two groups are issued BACK TO BACK (K-tile 0 in the prologue, V of the last K-tile in the
 //     epilogue); interior tiles have a bmm1/bmm2 against a different slot in between, which breaks the
-//     CSE. Proof: with both M-tiles waiting their own slot but pointed at the SAME descriptor value it
-//     is wrong (max|err| 0.77), and with the two slots SWAPPED -- identical bytes, different descriptor
-//     values -- it is correct (0.0017). See SmemDescPair below.
-//     Gate any change here with an oracle diff (DUMP_O + external reference): the built-in
+//     CSE. See SmemDescPair below.
+//     Gate any change here with DUMP_O + block_sparse_bf16_cpu_verifier.py: the built-in
 //     check_close_f32 (atol 0.05) is loose enough to hide this for topk >= 4.
 //   - No causal mask and no padding mask: every selected block is FULL (all 256 tokens valid) and
 //     the attention is non-causal (Sq == Skv, MHA, D = 128, bf16).
@@ -162,14 +160,14 @@ constexpr int Q_TILE_BYTES = Q_SUBTILES * Q_SUB_COLS_BYTES;     // blk64 16 KB, 
 //         head-dim half. (256 keys = 4 KV blocks of 64 tokens.)
 //       V-tile (128 hd x 256 tok): split by tokens -- each slot = full 128 hd x one 128-token
 //         half (= 2 KV blocks of 64 tok, one per kv-half).
-//   blk128: a K-tile or V-tile is exactly 32 KB -> ONE slot, waited once -- the dense uniform_inline.cu
+//   blk128: a K-tile or V-tile is exactly 32 KB -> ONE slot, waited once -- the dense fmha_context_bf16_uniform_inline.cu
 //     tile shape.
 //       K-tile: 1 KV block (128 tok) x 128 hd, both head-dim halves in one slot.
 //       V-tile: 128 hd x 128 tok, both token halves in one slot.
 constexpr int KV_RING_SLOT_BYTES = 32 * 1024;
 constexpr int SLOTS_PER_KV_TILE = BLK128 ? 1 : 2;
 // Ring depth in 32 KB slots. SMEM cap 227K: blk64 2*Q(32K) + 4*32K + 2*sO(32K); blk128
-// 2*Q(64K) + 3*32K + 2*sO(64K) (the dense kernel also ran 3 stages at this tile size).
+// 2*Q(64K) + 3*32K + 2*sO(64K) (3 stages, as in the dense kernel at this tile size).
 constexpr int NUM_KV_STAGES = BLK128 ? 3 : 4;
 
 constexpr int V_BLK_BYTES = HEAD_DIM * SUB_COLS_BYTES;   // 16 KB: one 64-token V^T B128 unit (128 hd x 64 tok)
@@ -194,7 +192,7 @@ constexpr int STAT_REGIONS = BLK128 ? 2 : 3;
 // f32 exchange buffer for the blk64 half-merge (one 64x16 chunk); absent for blk128.
 
 // 64-bit SMEM descriptor; the atom walk adds to the LOW word only (the hi/swizzle word is
-// walk-invariant) -> one 32-bit add per step, not a 64-bit carry pair. Copied from the dense
+// walk-invariant) -> one 32-bit add per step, not a 64-bit carry pair. As in the dense
 // fmha_context_bf16_uniform_inline.cu, and it is LOAD-BEARING FOR CORRECTNESS here, not just
 // codegen: with plain uint64 descriptor arithmetic the compiler CSEs the identical descriptor
 // across the two M-tiles' MMA groups into base+imm forms that rematerialize the hi word, and
@@ -1097,7 +1095,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         // VSA: no mask (every selected block is full, non-causal).
 
         // rmax via 4 independent FMNMX3 accumulators (4-way ILP), OLD MAX FOLDED
-        // into accumulator 0 (inline-base uplift #7). S_COLS % 8 == 0.
+        // into accumulator 0. S_COLS % 8 == 0.
         float rmax0 = m_run, rmax1 = -INFINITY, rmax2 = -INFINITY, rmax3 = -INFINITY;
         #pragma unroll
         for (int j = 0; j < S_COLS; j += 8) {
@@ -1109,13 +1107,13 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         float new_m = fmaxf(fmaxf(rmax0, rmax1), fmaxf(rmax2, rmax3));
         float alpha = 0.0f;
         if constexpr (!IS_FIRST) {
-          // FA4 sticky max (uplift #7): a small max drift costs a full O rescale
+          // FA4 sticky max: a small max drift costs a full O rescale
           // downstream; below the threshold keep the old max EXACTLY and publish
           // alpha == 1.0 -- pairs corr's __all_sync(alpha == 1.0f) skip vote.
           const float acc_scale_ = (m_run - new_m) * scale_log2;
           if (acc_scale_ >= -(float)RESCALE_THRESHOLD) { new_m = m_run; alpha = 1.0f; }
           else                     { alpha = ex2_approx_f32(acc_scale_); }
-          // volatile STS publish (uplift #8, MHA form): keeps ptxas from sinking the store past the bar arrive.
+          // volatile STS publish (MHA form): keeps ptxas from sinking the store past the bar arrive.
           sts_f32(alpha_slot_u32, alpha);
         }
         if constexpr (FULL_NAMED_BAR) full_bar_arrive(m_tile, warp_in_group);
@@ -1149,7 +1147,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
         if constexpr (SPLIT_P) {
           tcgen05_st_32x32b_x32(p_tmem_addr,      *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
           tcgen05_st_32x32b_x16(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[32]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e: fence orders but does NOT complete the async STTM
+          tcgen05_wait_st();   // RACE FIX: fence orders but does NOT complete the async STTM
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive(smem_ptr_u32(&empty_bar_spo[m_tile]));
           tcgen05_st_32x32b_x16(p_tmem_addr + SPLIT_P_COL, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[SPLIT_P_COL]));
@@ -1314,7 +1312,7 @@ static double run(const Sh& sh, bool verify) {
   CUDA_CHECK(cudaMalloc(&dO,  tq * H * hd * 2));
 
   std::vector<__nv_bfloat16> hQ(tq * H * hd), hK(tq * H * hd), hV(tq * H * hd);
-  const char* load_npy = getenv("LOAD_NPY");   // unified bench: shared Q/K/V + idx from .npy
+  const char* load_npy = getenv("LOAD_NPY");   // Q/K/V + idx from block_sparse_bf16_gen_inputs.py .npy
   if (load_npy) {
     const std::string d(load_npy);
     auto ld = [&](const char* nm, std::vector<__nv_bfloat16>& h) {
@@ -1346,7 +1344,7 @@ static double run(const Sh& sh, bool verify) {
   // ---- q2k index: topk DISTINCT block ids per (b,h,mtile), fixed density (num == topk) ----
   std::vector<int> hq2k_idx((size_t)num_global_q_blocks * max_kv, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
-  if (load_npy) {   // unified bench: head-independent [num_blocks, topk] list, broadcast across heads
+  if (load_npy) {   // LOAD_NPY: head-independent [num_blocks, topk] list, broadcast across heads
     char p[64]; snprintf(p, sizeof p, "/idx_S%d_blk%d.npy", S, SPARSE_BLOCK);
     auto idx = npy_load_vec<int32_t>(std::string(load_npy) + p);
     if (idx.size() != (size_t)num_blocks * topk) { fprintf(stderr, "LOAD_NPY: idx size %zu != %d\n", idx.size(), num_blocks * topk); exit(1); }

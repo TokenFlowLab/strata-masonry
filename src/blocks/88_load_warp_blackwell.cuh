@@ -148,7 +148,7 @@ void load_warp_blackwell_block(WpCtx& wpc,const CUtensorMap& tma_A,
  *   load_warp_blackwell_1tile_1sm_bf16  -- cta_group::1 variant.
  *   load_warp_blackwell_1tile_2sm_fp8   -- fp8 dtype variant.
  * One tile's worth of TMA loads of A and B operands (BF16 elements)
- * into NUM_STAGES SMEM stages. Composes primitives + composite 69
+ * into NUM_STAGES SMEM stages. Composes primitives + composite 118
  * already included by this file.
  *
  * Generalizations vs the existing __global__ test in this same file:
@@ -442,7 +442,7 @@ void load_warp_blackwell_1tile_1sm_bf16(WpCtx& wpc,
 //   2 = fractional evict_last/unchanged @ 0.5
 //   3 = fractional evict_last/unchanged @ 0.25
 //   4 = evict_unchanged (pure stream)
-// K0-style callers leave both at 0. Grouped GEMM typically picks
+// Dense GEMM callers leave both at 0. Grouped GEMM typically picks
 // A=evict_unchanged (pure stream) and B=evict_last (cross-tile expert
 // weight reuse).
 //
@@ -451,7 +451,7 @@ void load_warp_blackwell_1tile_1sm_bf16(WpCtx& wpc,
 // `expert_id * N` so B's flat (E*N, K) layout reads the right expert's
 // weights. `m_tile_remap` (runtime, nullptr = identity): see block 93's
 // `m_tile_remap` doc for the idx-space details. N / E / expert_cumul_smem
-// are only read when GROUPED_GEMM=true; pass defaults for K0-style use.
+// are only read when GROUPED_GEMM=true; pass defaults for dense GEMM use.
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
           int LOAD_REG_BUDGET = 40,
@@ -679,7 +679,7 @@ void load_warp_blackwell_ntiles_2sm_bf16_swiglu_m1(WpCtx& wpc,
  *       MMA's A-side SMEM layout; verified by tests/76). Each gather4
  *       call fetches 4 independent 1-row strips. Pad slots in `perm[]`
  *       use -1 and the descriptor's OOB-fill (zero) handles them.
- *   B : same chunked M2 layout as `grouped_gemm_bf16_2sm_swiglu_m2.cu`
+ *   B : same chunked M2 layout as block 93's SwiGLU EPI
  *       (cols 0..N/2-1 = up, N/2..N-1 = gate, pre-shuffled per N-tile),
  *       SWIZZLE_128B.
  *
@@ -700,7 +700,7 @@ void load_warp_blackwell_ntiles_2sm_bf16_swiglu_m1(WpCtx& wpc,
  * CAVEAT: peer 0's MMA (cta_group::2) reads A from BOTH peers' SMEMs.
  * Peer 0's mbar flips when peer 0's own A and both peers' B have
  * arrived -- it has NO visibility into peer 1's A-gather completion.
- * In the current K1 wiring this races and the kernel hangs. Closing
+ * Without a cross-peer sync this races and the kernel hangs. Closing
  * this requires either (a) a cluster_barrier between gather and MMA,
  * (b) a dedicated cross-peer "both A done" mbar with peer 1
  * arriving on it after waiting for its own local mbar, or (c) a
@@ -753,7 +753,7 @@ void load_warp_blackwell_ntiles_2sm_bf16_gather4(WpCtx& wpc,
   //              = kStageABytes + 2*kStageBBytes.
   //   peer 1 mbar: peer 1's A gather (local).
   //              = kStageABytes.
-  // Only peer 0's mbar is consumed by MMA (K1: MMA runs on peer 0 only).
+  // Only peer 0's mbar is consumed by MMA (MMA runs on peer 0 only).
   // Peer 1's mbar is consumed by peer 1's MMA warp (the relay): it waits
   // peer 1's full_bar then arrives peer 0's peer1_done_bar once peer 1's
   // gather has landed -- see mma_warp_blackwell_ntiles_2sm_bf16_peer1relay.
@@ -1308,16 +1308,16 @@ void load_warp_blackwell_ntiles_1sm_bf16_gather4(WpCtx& wpc,
 }
 
 /* ============================================================================
- * load_warp_blackwell_ntiles_1sm_bf16_gather4_parallel<...>(wpc, ...)   [K13, increment 4A]
+ * load_warp_blackwell_ntiles_1sm_bf16_gather4_parallel<...>(wpc, ...)
  *
- * Same contract as load_warp_blackwell_ntiles_1sm_bf16_gather4, but fixes the
- * single-thread serial gather4 bottleneck (K12):
+ * Same contract as load_warp_blackwell_ntiles_1sm_bf16_gather4, but fixes its
+ * single-thread serial gather4 bottleneck:
  *
- *   K12: one elected lane issues all N_GATHER_PER_KBLOCK (=32 for
+ *   serial: one elected lane issues all N_GATHER_PER_KBLOCK (=32 for
  *        M_TILE=128) gather4 calls per K-block, re-reading perm[] each
  *        K-block -> 1024 serial issues + 4096 redundant perm reads per CTA.
  *
- *   4A:  (i) hoist perm[] indices out of the K loop -- each lane reads its
+ *   here: (i) hoist perm[] indices out of the K loop -- each lane reads its
  *            own 4 row indices ONCE per tile (perm[] is K-invariant), held
  *            in registers; and
  *        (ii) lane-parallel issue -- lane g issues gather4 #g (rows
@@ -1473,14 +1473,14 @@ void load_warp_blackwell_ntiles_1sm_bf16_gather4_parallel(WpCtx& wpc,
 }
 
 /* ============================================================================
- * load_warp_blackwell_ntiles_1sm_bf16_cpasync<...>(wpc, ...)  [K14, 4C]
+ * load_warp_blackwell_ntiles_1sm_bf16_cpasync<...>(wpc, ...)
  *
  * cp.async gather-fused 1SM load warps for MoE FC1. Replaces the TMA
- * gather4 A-load (K12/K13) with a TILED cp.async gather: NUM_LOAD_WARPS
+ * gather4 A-load with a TILED cp.async gather: NUM_LOAD_WARPS
  * warps (default 4 = 128 threads) cooperatively copy the A tile from the
  * UNPERMUTED activation, each row's GMEM address indirected through the
- * gather index. B stays on TMA. This attacks the DMA-bound gather (K13-4A
- * showed it is throughput-bound, not issue-bound) by moving the bytes with
+ * gather index. B stays on TMA. This attacks the DMA-bound gather (it is
+ * throughput-bound, not issue-bound) by moving the bytes with
  * the full LSU of 128 threads instead of the TMA HW-gather. Mirrors QuACK's
  * use_tma_gather=False path (gemm_sm100.py: load_AB_gather_A /
  * copy_utils.py: gather_m_get_copy_fn).
@@ -1666,14 +1666,14 @@ void load_warp_blackwell_ntiles_1sm_bf16_cpasync(WpCtx& wpc,
 }
 
 /* ============================================================================
- * load_warp_blackwell_ntiles_2sm_bf16_cpasync<...>(wpc, ...)  [K15, 4D]
+ * load_warp_blackwell_ntiles_2sm_bf16_cpasync<...>(wpc, ...)
  *
  * 2SM (cta_group::2) cp.async gather-fused load warps for MoE FC1. Each of
  * the 2 cluster CTAs gathers ITS OWN M_TILE_PER_CTA rows of A via cp.async
  * (the 2SM TMA splits the MTC-row A tile per-peer, so per-CTA-local gather
  * is correct); B is loaded by the 2SM multicast TMA. The MMA is cta_group::2.
  *
- * A-completion (design sec 4D / sec 12): cp.async.mbarrier.arrive is
+ * A-completion: cp.async.mbarrier.arrive is
  * shared::cta, so CTA1 cannot directly signal the LEADER's full_bar. The load
  * warp does NOT solve this -- it stays fully fire-and-forget: each peer arms
  * only its OWN local full_bar (128 cp.async.mbarrier.arrive.noinc + peer 1's 1
@@ -1682,11 +1682,7 @@ void load_warp_blackwell_ntiles_1sm_bf16_cpasync(WpCtx& wpc,
  * idle) MMA warp -- it waits its own full_bar[s] then
  * mbarrier.arrive.shared::cluster on peer 0's peer1_done_bar[s]. See
  * mma_warp_blackwell_ntiles_2sm_bf16_peer1relay. Keeping the wait off the
- * load warp is what makes the gather fully async (the K15 1.9x win).
- *
- * (History: an earlier version did the peer1->peer0 handshake ON the load
- * warp -- a deferred-by-1 wait + cross-CTA arrive -- which stalled the load on
- * its own cp.async every K-block; removed in favor of the MMA-warp relay.)
+ * load warp is what makes the gather fully async.
  *
  * PTX: 9.7.10.28.5.3 (cta_group::2 TMA), 9.7.15.16.16 (mbarrier.arrive
  *      .shared::cluster), 9.7.10.28.3.* (cp.async).
@@ -1819,7 +1815,7 @@ void load_warp_blackwell_ntiles_2sm_bf16_cpasync(WpCtx& wpc,
       // A-ready: each peer arms its OWN full_bar, fire-and-forget. count=129:
       // 128 cp.async.noinc + (peer0: B expect_tx | peer1: 1 plain). The
       // peer1->peer0 relay is on peer1's MMA warp (..._gather_async), not here.
-      // Keep BRANCHED on peer -- ~10% faster than unconditional (codegen).
+      // Keep BRANCHED on peer -- faster than unconditional (codegen).
       if (peer == 0) {
         cp_async_mbarrier_arrive_noinc(full);   // 128 .noinc; B expect_tx is the 129th
       } else {

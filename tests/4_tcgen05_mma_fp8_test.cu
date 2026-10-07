@@ -8,8 +8,8 @@
 // kernel allocating TMEM, issuing the MMA with zero descriptors,
 // committing, waiting, and deallocating completes without hang. End-to-end
 // correctness (real FP8 GEMM) lives at the block level (#90, #100). The
-// new block-scaled .kind::mxf8f6f4 wrappers + the TS forms added in
-// e40352e are separately exercised by _extended_coverage_probe_test.
+// block-scaled .kind::mxf8f6f4 wrappers + the TS forms are separately
+// exercised by _extended_coverage_probe_test.
 //
 // PTX sniff: `cuobjdump --dump-ptx build/4_tcgen05_mma_fp8_test |
 // grep -E 'tcgen05.mma.cta_group::1.kind::f8f6f4'` should show the issue.
@@ -129,7 +129,7 @@ __global__ void k_fp8_sparse() {
   if (threadIdx.x == 0) tcgen05_dealloc<1>(tmem_base, 128);
 }
 
-// Non-sparse extra-forms smoke (round 4c probe-graduation): exercises
+// Non-sparse extra-forms smoke: exercises
 // tcgen05_mma_fp8_ts_1sm (TS form) and tcgen05_mma_mxf8f6f4_ss_1sm_block32
 // (block-scaled SS) directly. Same TMEM/idesc/descriptor scaffold as k_fp8.
 enum class Fp8ExtraForm { F8F6F4_TS, MXF8F6F4_SS_B32 };

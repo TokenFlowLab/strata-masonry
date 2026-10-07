@@ -10,7 +10,7 @@
 // (limited only by SMEM stage count); the alloc state machine's phase
 // invariant requires a tighter bound.
 //
-// Pattern (per knowledge sec 8.2 ingredient 7):
+// Pattern:
 //   Init: throttle_full[N] arrive_count=1, throttle_empty[N] arrive_count=1.
 //         Pre-arrive throttle_empty[N] times (all "free" at start).
 //   Load warp (per tile):

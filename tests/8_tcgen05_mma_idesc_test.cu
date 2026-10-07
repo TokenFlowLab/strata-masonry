@@ -10,9 +10,9 @@
 // generic Table 53 packer plus their specialization deltas. Pure host
 // code (no kernel launch).
 //
-// Phase 4 round 4b (Bravo) extension -- direct host-side bit-pattern
+// Also: direct host-side bit-pattern
 // verification for the Table 54 (mxf8f6f4), Table 55 (mxf4nvf4), and the
-// `idesc_set_sparsity` / `idesc_set_ws_mode` helpers added in e40352e.
+// `idesc_set_sparsity` / `idesc_set_ws_mode` helpers.
 // Each is checked against a hand-rolled reference derived from PTX
 // 9.7.18.4.2 Tables 54 and 55.
 
@@ -200,7 +200,7 @@ int main() {
                                                 "s8_s32_sat(128,8)" },
     { h[8], expected_table44(128, 8,   2, 0, 0, false, false, 0),
                                                 "u8_s32(128,8)"      },
-    // -- Phase 4 round 4b additions (Tables 54 / 55 + mutators) --
+    // -- Tables 54 / 55 + mutators --
     { h[9],  want_mxf8f6f4_a,  "mxf8f6f4 minimal(128,128 E4M3xE4M3)" },
     { h[10], want_mxf8f6f4_b,  "mxf8f6f4 maxed(256,256 E2M1xE2M1)"   },
     { h[11], want_mxf4nvf4_a,  "mxf4nvf4 default(128,128)"           },

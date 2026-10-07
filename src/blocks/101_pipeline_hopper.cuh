@@ -11,7 +11,7 @@
 //
 // Composes #23 (tma_tensormap), #29-#33 (mbarrier), #37 (bar_sync),
 // #44 (elect_sync), #43 (smem_desc_hopper), #53/#59 (wgmma family),
-// #67 (tma_load_stage), #69 (phase tracking), #73 (k_loop_hopper),
+// #116 (tma_load_stage), #118 (phase tracking), #122 (k_loop_hopper),
 // #84 (warp_dispatch).
 //
 // Block function:

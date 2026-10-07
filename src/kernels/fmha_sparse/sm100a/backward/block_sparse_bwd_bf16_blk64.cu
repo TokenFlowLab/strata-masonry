@@ -1,6 +1,5 @@
 // block_sparse_bwd_bf16_blk64.cu -- VSA block-sparse BACKWARD, bf16, sm_100a,
-// 64-token blocks, ONE-PASS KV-stationary (named _1pass until 2026-09-05; the earlier blk64
-// kernel is in stale/).
+// 64-token blocks, ONE-PASS KV-stationary.
 //
 // One CTA owns one kv64 block and walks that block's q-list. Per visited q-quad it recomputes P^T,
 // forms dS^T, accumulates dK/dV in TMEM, and pushes dQ partials to a global accumulator with
@@ -32,8 +31,8 @@
 //      contract over different dims: S^T = K @ Q^T over hd, dK += dS^T @ Q over q tokens (likewise
 //      dO for dP^T and dV). The MMA calls a B tile K-major when its contraction dim is the
 //      contiguous one, MN-major otherwise -- a label per GEMM, not per tensor. Natural Q ([tokens,
-//      hd]) is K-major for S^T but MN-major for dK; Q^T ([hd, tokens]) is the reverse. The earlier
-//      kernel gathered both layouts every quad and the load path was the pacer. This kernel keeps
+//      hd]) is K-major for S^T but MN-major for dK; Q^T ([hd, tokens]) is the reverse. Gathering
+//      both layouts every quad makes the load path the pacer. This kernel keeps
 //      ONE SMEM copy -- Q^T and dO^T (tokens contiguous), the form the TS GEMMs dK/dV need (tb=0,
 //      K-major for them) -- and lets S^T/dP^T read the same copy via the instruction descriptor's
 //      transpose-B bit tb=1 (B is MN-major: for S^T the contiguous tokens are N, and the MMA
@@ -1338,7 +1337,7 @@ __global__ void __cluster_dims__(1, 1, 1) __launch_bounds__(N_WARPS * 32, 1)
             // Padded blocks zero P with this warp-uniform select, not by branching around the
             // loop: `if (qblock_valid) { loop } else { zero-fill }` miscompiled here twice
             // (STACK 8 -> 120 B, 312 spill ops, dq/dk wrong while dV stayed right; nvcc 13.0,
-            // sm_100a, 2026-09-02). Padding is rare (last quad of an item) so the wasted
+            // sm_100a). Padding is rare (last quad of an item) so the wasted
             // exp2 work is negligible.
             // TODO: root-cause that miscompile (the SASS pre-zeroes the else path, so the
             // wrong values are unexplained) and then skip the math for padded blocks.
@@ -2024,7 +2023,7 @@ inline cudaError_t launch_vsa_bwd_sm100a(const VsaBwdArgs& a, cudaStream_t strea
   }
 
   if constexpr (SCHED == Sched::CLC) {
-    // Preserve the old CLC baseline: only the L2-policy regime is chunked. K2Q_WAVES selects the
+    // Only the L2-policy regime is chunked. K2Q_WAVES selects the
     // true non-persistent, per-head path above.
     const int chunk = keep_dq_l2 ? std::min(sms, total) : total;
     for (int base = 0; base < total; base += chunk) {
@@ -2485,7 +2484,7 @@ static void run(const Sh& sh) {
     snprintf(p, sizeof p, "/lse_S%d_blk%d.npy", S, BLOCK);
     file_M = npy_load_vec<float>(std::string(load_npy) + p);
     if (o_bits.size() != hO.size() || file_M.size() != hM.size()) {
-      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun gen_inputs.py\n");
+      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun block_sparse_bf16_gen_inputs.py\n");
       exit(1);
     }
     file_O.resize(o_bits.size());
@@ -2790,8 +2789,8 @@ static void run(const Sh& sh) {
         npy_save_f32(prefix + "_dv.npy", gdv.data(), {tq, (long)H, (long)hd});
       }
       // dq gate 8e-3: the CPU-ref-vs-torch-fp32 noise floor from the
-      // production bf16 quantization points is ~1.9-2.7e-3 (oracle_bwd.py,
-      // 2026-08-25), GPU-vs-CPU can legitimately reach ~2x that, and the
+      // production bf16 quantization points is ~1.9-2.7e-3, GPU-vs-CPU can
+      // legitimately reach ~2x that, and the
       // bf16-rounded dq output adds its own rounding on top.
       if (run_cpu) {
         const double rq_gate = 8e-3;

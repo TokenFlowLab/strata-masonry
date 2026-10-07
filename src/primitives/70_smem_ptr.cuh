@@ -39,8 +39,8 @@ float4 lds_f32x4(uint32_t smem_addr) {
 //   1. ORDERING (always-valid): `volatile` + "memory" pin the store so ptxas cannot sink it
 //      past a following bar arrive -- use this wherever you publish-then-signal.
 //   2. PIPE choice (NOT a default): it lowers to STS (routes via MIO) instead of a generic
-//      `*ptr = val` (ST.E via L1TEX). MIO is faster ONLY where that pipe has slack -- measured
-//      +24 mha-long but -31 gqa-mid, so callers GATE it (FMHA uses it under MHA, keeps the
+//      `*ptr = val` (ST.E via L1TEX). MIO is faster ONLY where that pipe has slack -- it
+//      helps MHA but hurts GQA, so callers GATE it (FMHA uses it under MHA, keeps the
 //      generic store for GQA). Do not use blindly; pick per pipe slack.
 __device__ __forceinline__
 void sts_f32(uint32_t smem_addr, float val) {

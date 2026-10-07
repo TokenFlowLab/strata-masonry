@@ -99,12 +99,6 @@ void mbarrier_wait_parity(uint32_t mbar_smem, uint32_t phase_parity) {
 }
 
 // Cluster-scope blocking spin (mbarrier visible across cluster).
-//
-// TODO: unify with the cta-scope pattern -- rename to
-// `mbarrier_wait_parity_cluster` and reduce the body to
-// `while (!mbarrier_try_wait_parity_acquire_cluster(...)) { }`. Held
-// off because the rename has zero callers today, so introducing a new
-// name now is bloat without demand. Revisit when a real caller appears.
 __device__ __forceinline__
 void mbarrier_try_wait_parity_spin_cluster(uint32_t mbar_smem,
                                            uint32_t phase_parity) {

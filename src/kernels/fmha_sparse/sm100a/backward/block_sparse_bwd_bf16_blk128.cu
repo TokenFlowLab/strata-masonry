@@ -1,5 +1,5 @@
 // block_sparse_bwd_bf16_blk128.cu -- VSA block-sparse BACKWARD, bf16, sm_100a,
-// 128-token blocks, KV-stationary, FA4-form (flash_bwd_sm100.py @ 0251105, 1cta, hdim128).
+// 128-token blocks, KV-stationary, FA4-form (flash_bwd_sm100.py, 1cta, hdim128).
 //
 // One CTA owns one kv128 block and walks that block's q-list, one q128 block per step. Per step it
 // recomputes P^T, forms dS^T, accumulates dK/dV in TMEM, and pushes the step's dQ tile to a global
@@ -567,7 +567,7 @@ __global__ void __cluster_dims__(1, 1, 1) __launch_bounds__(N_WARPS * 32, 1)
   WpCtx wpc = wp_ctx_init();
 
   // Cooperative residency makes this CTA-leader barrier deadlock-free. The functionally correct
-  // cooperative_groups::this_grid().sync() form was tested, but reduced S524K throughput from
+  // cooperative_groups::this_grid().sync() form reduces S524K throughput from
   // 1187.6 to 822.8 TFLOP/s. One atomic arrival per CTA avoids its all-thread grid-barrier cost.
   // A monotonic counter avoids a separate sense word: round r releases at
   // (r + 1) * gridDim.x arrivals. The surrounding CTA barriers make all 16 warps finish the
@@ -1699,7 +1699,7 @@ __global__ void __launch_bounds__(256, 1)
   }
 }
 
-// Postprocess (FA4's scheme, fa4_bwd_postprocess.py 1CTA path): one CTA per (q128 block,
+// Postprocess (FA4's scheme, 1CTA path): one CTA per (q128 block,
 // batch*head), 128 threads, 64 KB SMEM.
 //   A. The whole 16384-f32 drain-native block is loaded contiguously with cp.async.cg (32 x 16 B
 //      per thread).
@@ -2660,7 +2660,7 @@ static void run(const Sh& sh) {
     snprintf(p, sizeof p, "/lse_S%d_blk%d.npy", S, BLOCK);
     file_M = npy_load_vec<float>(std::string(load_npy) + p);
     if (o_bits.size() != hO.size() || file_M.size() != hM.size()) {
-      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun gen_inputs.py\n");
+      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun block_sparse_bf16_gen_inputs.py\n");
       exit(1);
     }
     file_O.resize(o_bits.size());
@@ -2901,8 +2901,8 @@ static void run(const Sh& sh) {
         npy_save_f32(prefix + "_dv.npy", gdv.data(), {tq, (long)H, (long)hd});
       }
       // dq gate 8e-3: the CPU-ref-vs-torch-fp32 noise floor from the
-      // production bf16 quantization points is ~1.9-2.7e-3 (oracle_bwd.py,
-      // 2026-08-25), GPU-vs-CPU can legitimately reach ~2x that, and the
+      // production bf16 quantization points is ~1.9-2.7e-3, GPU-vs-CPU can
+      // legitimately reach ~2x that, and the
       // bf16-rounded dq output adds its own rounding on top.
       if (run_cpu) {
         const double rq_gate = 8e-3;

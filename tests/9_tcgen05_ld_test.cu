@@ -8,8 +8,8 @@
 // loaded register values exactly match what was written. Exercises the
 // .32x32b shape across .x{1,2,4,8} num levels.
 //
-// Phase 4 round 4a (Bravo) extension -- per-variant non-zero round-trip for
-// the expanded shape x num matrix added in e40352e:
+// Also: per-variant non-zero round-trip for
+// the expanded shape x num matrix:
 //   .16x64b.x{2,4,8}, .16x128b.x{2,4}, .16x256b.x2,
 //   .32x32b.x{1,4}.pack::16b, .16x256b.x1.pack::16b,
 //   .16x32bx2.x{1,2,4} <8>
@@ -19,7 +19,7 @@
 // is verified by the existing .32x32b round-trip; per-variant correctness
 // here is "the asm executes and populates the destination regs".
 //
-// Phase 4 round 4e (Delta) extension -- 5 sm_103a-only ld.red runtime
+// Also: 5 sm_103a-only ld.red runtime
 // tests (tcgen05.ld.red.32x32b.x2 with min/max/max.abs/max.u32/min.s32).
 // Gated by `#if defined(PL_AGENTIC_SM103A)` and run only on GB300.
 //
@@ -215,7 +215,7 @@ __global__ void k_ld_variants(uint32_t* g_got, uint32_t* g_total) {
 }
 
 // =============================================================================
-// tcgen05.ld.red runtime tests (Phase 4 round 4e, sm_103a-only)
+// tcgen05.ld.red runtime tests (sm_103a-only)
 // =============================================================================
 //
 // 5 variants of `tcgen05.ld.red.32x32b.x2`:
@@ -455,7 +455,7 @@ int main() {
   if (rt_fails) FAIL("ld/st round-trip produced wrong register values");
 
   // ------------------------------------------------------------------
-  // Part 2 -- per-variant non-zero round-trip (Phase 4 round 4a).
+  // Part 2 -- per-variant non-zero round-trip.
   // ------------------------------------------------------------------
   uint32_t* d_v_got   = nullptr;
   uint32_t* d_v_total = nullptr;
@@ -502,7 +502,7 @@ int main() {
     FAIL("%d ld variant(s) returned all-zero destination regs", v_fails);
 
   // ------------------------------------------------------------------
-  // Part 3 -- sm_103a-only ld.red runtime tests (Phase 4 round 4e).
+  // Part 3 -- sm_103a-only ld.red runtime tests.
   // ------------------------------------------------------------------
 #if defined(PL_AGENTIC_SM103A)
   if (run_ld_red() != 0) return 1;

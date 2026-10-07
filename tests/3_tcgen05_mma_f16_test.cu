@@ -125,7 +125,7 @@ __global__ void k_mma_sparse() {
   if (threadIdx.x == 0) tcgen05_dealloc<1>(tmem_base, 128);
 }
 
-// Scaled-input-d smoke (round 4c probe-graduation): same shape as k_mma but
+// Scaled-input-d smoke: same shape as k_mma but
 // issues the scaled SS form: tcgen05.mma.kind::f16 ..., {mask}, p, scale_input_d
 // with SCALE_INPUT_D=1.
 __global__ void k_mma_scaled() {

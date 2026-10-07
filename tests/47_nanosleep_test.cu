@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 47_nanosleep_test.cu -- compile smoke; nanosleep is a timing hint.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +16,7 @@
 #include "47_nanosleep.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -28,7 +27,6 @@ __global__ void k_n() {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   k_n<<<1, 32>>>();
   CUDA_CHECK(cudaDeviceSynchronize());
   printf("nanosleep.u32 : compile + run OK\n");
@@ -36,7 +34,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: nanosleep -- compile + PTX verification + perf timing
@@ -50,7 +48,6 @@ __global__ void nanosleep_kernel() {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
 
     // Warm-up launch to surface any JIT/init errors before timing.

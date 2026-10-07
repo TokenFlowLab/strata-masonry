@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 82_tile_rasterize_test.cu -- verify all three rasterizers cover a grid.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,14 +18,13 @@
 #include "82_tile_rasterize.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
 
 
 static int run_ours() {
-  /* (orig args dropped) */
   const int TM = 4, TN = 5;
   std::set<std::pair<int,int>> seen_col, seen_row, seen_sw;
   for (int t = 0; t < TM * TN; ++t) {
@@ -43,7 +41,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: tile rasterization (col/row-major, swizzled, snake)
@@ -96,7 +94,6 @@ static bool check_pair(const int* buf, int idx, int em, int en, const char* tag)
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

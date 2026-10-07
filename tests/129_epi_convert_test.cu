@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 129_epi_convert_test.cu -- exercise each dtype branch of epi_pack4.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,7 +19,7 @@
 #include "129_epi_convert.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -39,7 +38,6 @@ __global__ void k(uint32_t* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 32));
   k<<<1, 1>>>(d);
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -53,7 +51,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: 129_epi_convert -- pure compute conversion verification.
@@ -114,7 +112,6 @@ __global__ void kernel_cvt_perf(const float* in, uint32_t* out, int iters) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

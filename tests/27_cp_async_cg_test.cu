@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 27_cp_async_cg_test.cu -- 16-byte L1-bypass cp.async copy with verification.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -18,7 +17,7 @@
 #include "27_cp_async_cg.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -38,7 +37,6 @@ __global__ void k_cpg(const uint32_t* gin, uint32_t* gout) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   std::vector<uint32_t> hin(128);
   for (int i = 0; i < 128; ++i) hin[i] = 0xB0000000u + i;
   uint32_t *din = nullptr, *dout = nullptr;
@@ -59,7 +57,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: cp.async.cg (16B streaming) -- GMEM->SMEM->GMEM roundtrip + timing
@@ -84,7 +82,6 @@ __global__ void cp_async_cg_16_kernel(const uint32_t* __restrict__ gmem_in,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

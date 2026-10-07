@@ -13,8 +13,7 @@
 // ctaid.y) directly; there is no linear tile_id to remap. Any
 // L2-locality optimization on the CLC path needs an axis-swap transform
 // applied to the post-decoded (m_tile, n_tile) -- a different API
-// (e.g. a `clc_rasterize` helper in composite 106 modeled on V56's
-// `sched_swizzle_and_rasterize`).
+// (e.g. a `clc_rasterize` helper in composite 106).
 //
 // Column-major order (iterate M first) improves L2 locality for GEMM because
 // A tile rows are reused across N-blocks within the same M-block.
@@ -34,7 +33,7 @@
 
 #pragma once
 
-// PTX:    n/a (tile-coord math; cite knowledge for col / row / swizzled raster)
+// PTX:    n/a (tile-coord math)
 //
 #include <cstdint>
 

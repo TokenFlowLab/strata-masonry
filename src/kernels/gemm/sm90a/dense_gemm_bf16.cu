@@ -2,31 +2,18 @@
 //
 // ARCH: sm_90a
 //
-// V0 SKELETON SCOPE:
+// SKELETON SCOPE:
 //   - Goal: end-to-end correct kernel + verify + bench at all 6 shapes
-//     (UND/GEN x {gate, qkv, o-proj}).
-//   - Performance bar (>= 85% Hopper SOL or roofline-ceiling) is NOT the
-//     skeleton commit's bar; tune-1+ commits drive perf to the bar.
-//   - Verify: host-side reference at a 64x64x64 smoke shape (small,
-//     fits in CPU compute budget). Production-shape verify against
-//     CUTLASS / cuBLAS lands in a tune commit once the build harness
-//     supports the extra link dep.
+//     (UND/GEN x {gate, qkv, o-proj}); not performance-tuned.
+//   - Verify: host-side reference at a 64x64x64 smoke shape only (small,
+//     fits in CPU compute budget).
 //
-// KNOWN ISSUE (skeleton-state, addressed in tune-1):
+// KNOWN ISSUE:
 //   Random-input smoke verify FAILS (K-sum-correct all-ones probe passes,
 //   but per-cell random verify diverges).  Empirical row_id probe
 //   (A[m,k]=m, B[k,n]=1 -> D[m,n]=K*m) shows output[r, 0] = K*(r/8 + r%8)
-//   instead of K*r.  Root cause is the per-thread WGMMA m64nNk16 FP32
-//   accumulator-fragment to (row, col) mapping below
-//   (`wgmma_m64n64k16_slot_to_rc`): the standard mma.sync.m16n8k16
-//   extrapolation does not match the actual WGMMA layout per Figure 152
-//   of PTX 9.7.17.5.1.2 (figure is an image; not text-extractable).
-//   Tune-1 will refactor the epilogue to compose from
-//   composites/77::epi_f32_accum_to_bf16_subtiles (which encodes the
-//   correct slot-to-stmatrix layout via the audited pipeline) instead
-//   of the inline slot-to-rc helper used here.  That refactor also
-//   replaces direct-FP32-GMEM-store with a stmatrix-based BF16 epilogue
-//   + TMA store, matching the production Hopper epilogue pattern.
+//   instead of K*r.  Open: the WGMMA layout per Figure 152 of PTX
+//   9.7.17.5.1.2; see the SMEM descriptor note in the MMA loop.
 //
 // COMPOSITION:
 //   - 1-CTA-per-output-tile, TILE_M=TILE_N=TILE_K=64, NUM_STAGES=3.
@@ -34,20 +21,12 @@
 //   - WGMMA atom: wgmma.mma_async.m64n64k16.f32.bf16.bf16
 //     (`primitives/55_wgmma_bf16_ss.cuh::wgmma_bf16_ss_m64n64k16`, 32
 //      f32 accum regs / thread).
-//   - Epilogue: simplest correct -- each thread writes its 32 FP32 accum
-//     slots to the correct (row, col) of the M*N x sizeof(float) output
-//     tile via direct st.global. NO BF16 conversion / TMA store /
-//     stmatrix in V0; tune-1 adds the BF16 epilogue (output then becomes
-//     BF16 and this driver's verify path reads BF16 instead of FP32).
+//   - Epilogue: FP32 accum -> BF16 via stmatrix to SMEM, then TMA store.
 //   - M is padded to next multiple of TILE_M (UND M=14046 -> 14080).
 //     Padded rows hold zero in the input and discarded on output read.
 //
 // LAYERING NOTE:
-//   No new wrappers added in this commit. Kernel composes existing
-//   primitives directly (TMA tensormap, mbarrier, wgmma, smem desc).
-//   Tune commits may add wrappers (e.g. wgmma_bf16_ss_m64n128k16 for
-//   the wider tile that production GEMM kernels use); when added,
-//   they go to primitives/ first.
+//   Composes existing primitives directly (TMA tensormap, mbarrier, wgmma, smem desc).
 //
 // PTX:    9.7.17.5 (wgmma.mma_async.bf16), 9.7.15.16 (mbarrier),
 //         9.7.10.28.5.3 (cp.async.bulk.tensor)
@@ -126,10 +105,10 @@ constexpr size_t SMEM_BYTES =
 extern __shared__ __align__(128) char k7_smem[];
 
 // Per-thread SMEM address for stmatrix.x4 within a 16x16 sub-tile of the
-// output 64x64 BF16 tile. Direct mirror of block94::block94_stmatrix_row_addr_16x16
+// output 64x64 BF16 tile. Direct mirror of blocks/94's epi_warp_hopper_stmatrix_row_addr_16x16
 // extended with the per-warp 16-row offset. Each warp covers 16 rows; within
 // the warp's 16-row stripe, lane 0..31 contributes to one of 4 m8n8 sub-matrices
-// per the stmatrix.x4 layout (block #94 / composite #77 convention).
+// per the stmatrix.x4 layout (block #94 / composite #126 convention).
 __device__ __forceinline__
 uint32_t k7_stmatrix_addr(uint32_t smem_d_base, uint32_t row_stride_bytes,
                           int warp_in_wg, int lane) {
@@ -143,7 +122,7 @@ uint32_t k7_stmatrix_addr(uint32_t smem_d_base, uint32_t row_stride_bytes,
 }
 
 // One CTA computes one (TILE_M x TILE_N) output tile via WGMMA + simplest
-// FP32-output epilogue.
+// BF16-output epilogue.
 //
 //   gridDim.x = ceil(M_padded / TILE_M)
 //   gridDim.y = ceil(N        / TILE_N)
@@ -156,7 +135,7 @@ uint32_t k7_stmatrix_addr(uint32_t smem_d_base, uint32_t row_stride_bytes,
 //    -> B SMEM tile is K-major-of-N (each row is N elements contiguous).
 //    -> matches wgmma `imm-trans-b = 1` (the wrapper's convention,
 //       per primitives/55_wgmma_bf16_ss.cuh and block #101).
-// D: row-major M_padded x N (FP32; valid output is rows [0, M)).
+// D: row-major M_padded x N (BF16; valid output is rows [0, M)).
 //
 // Math: D[m, n] = sum_k A[m, k] * B[k, n].
 __global__ void __launch_bounds__(k7::N_THREADS)
@@ -264,20 +243,8 @@ k7_dense_gemm_bf16_v0(
                 // A (it works for block #101's all-ones test, where LBO doesn't
                 // affect the K-sum, but produces row-shuffled output for
                 // row-id-style non-uniform input). Use the explicit builder.
-                // SBO/LBO sweep status (row_id probe, A[m,k]=m, B[k,n]=1):
-                //   (LBO=0, SBO=128):    output[r] = K*(r/8 + r%8); m up to 14
-                //   (LBO=0, SBO=1024):   row pairs aliased; m up to 62
-                //   (LBO=0, SBO=2048):   warps 2-3 zero
-                //   (LBO=16, SBO=1024):  same as (0, 1024) -- LBO doesn't affect
-                //   (LBO=1024, SBO=0):   tiled stripes; warp doesn't advance
-                //   (LBO=1024, SBO=16):  odd rows CORRECT (K*r); even rows offset by
-                //                        16w + 8 - 16wK; some rows correct
-                //   (LBO=1024, SBO=32):  same as (1024, 16) but offset doubled
-                //   (LBO=1024, SBO=128): row pairs aliased; m=2r+1 for row 2r
-                // Best partial match: LBO=1024, SBO=16. Sticking with that for
-                // the WIP commit. Full correctness needs authoritative MMA atom
-                // descriptor encoding info that's not derivable from PTX text
-                // alone (Figure 152 + canonical layout interpretation).
+                // (LBO=1024, SBO=16) is only the best partial match on the row_id probe;
+                // the correct encoding is not derivable from the PTX text alone (Figure 152).
                 uint64_t a_desc = build_smem_desc_hopper(
                     sA + kb * 16 * 2,
                     /*LBO bytes*/ 8 * TILE_K * 2,
@@ -303,7 +270,7 @@ k7_dense_gemm_bf16_v0(
         }
 
         // ----- Epilogue: convert FP32 -> BF16, stmatrix to SMEM, TMA store -----
-        // Compose from composites/77::epi_f32_accum_to_bf16_subtiles.
+        // Compose from composites/126::epi_f32_accum_to_bf16_subtiles.
         // Each warp covers 16 rows of the 64x64 output. Per warp, 4 stmatrix.x4
         // batches tile 16x64 along N (4 x 16 cols each). 4 warps tile M.
         const int warp_in_wg = t_wg / 32;

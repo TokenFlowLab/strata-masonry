@@ -3,8 +3,7 @@
 // complete_tx is issued by a separate thread to mimic the TMA completion
 // path; the mbarrier should flip phase when arrival+tx are satisfied.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,7 +23,7 @@
 #include "33_mbarrier_try_wait.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -48,7 +47,6 @@ __global__ void k_tx(int* ok) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_tx<<<1, 32>>>(d);
@@ -61,7 +59,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: mbarrier.arrive.expect_tx + mbarrier.complete_tx
@@ -141,7 +139,6 @@ __global__ void standalone_expect_kernel(uint32_t* out, uint32_t expected_bytes)
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 
@@ -187,7 +184,7 @@ static int run_theirs() {
 }
 
 
-// Round 4h: arrive.expect_tx.release.cluster -- 2-CTA cluster, peer CTA
+// arrive.expect_tx.release.cluster -- 2-CTA cluster, peer CTA
 // (CTA 0) registers expected bytes against an mbar visible to peers via
 // .cluster scope; CTA 1 credits the bytes via mbarrier.complete_tx using
 // a cluster-translated mbar address (mapa). CTA 0 waits and confirms.

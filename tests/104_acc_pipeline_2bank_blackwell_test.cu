@@ -10,8 +10,8 @@
 // consumer wait or producer wait, no trap).
 //
 // This is a composite-level smoke test (no tcgen05.alloc / tcgen05.mma
-// to exercise the sec-8.1 alloc state machine -- that is verified at
-// kernel level via K0 dense_gemm_bf16.cu).
+// to exercise the tcgen05 alloc state machine -- that is verified at
+// kernel level via dense_gemm_bf16.cu).
 #if defined(PL_AGENTIC_SM100A) || defined(PL_AGENTIC_SM103A)
 
 #include <cstdio>

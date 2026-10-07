@@ -19,7 +19,7 @@
 // shared primitives 11 (tcgen05_commit/_multicast), 13 (tcgen05_cp_4x256b),
 // 15 (tcgen05_fence_before_thread_sync), 33 (mbarrier_wait_parity).
 // The body is gated by __has_include on those four headers so the file
-// degrades to an empty include when a partial sm_100a tree lacks them.
+// degrades to an empty include when they are missing.
 //
 // Issuer: a single MMA-warp thread per CTA (cta_group::1) or per CTA-pair
 // (cta_group::2). Caller supplies pre-built SMEM descriptors via file 17

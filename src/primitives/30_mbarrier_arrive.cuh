@@ -78,10 +78,10 @@ void mbarrier_arrive_nostate(uint32_t mbar_smem) {
 // **Gotcha:** The explicit `.scope=.cluster` form (cluster-scope memory
 // ordering) interacts with the tcgen05 alloc state machine on sm_100a:
 // it triggers `phase_invalid_during_alloc` in persistent + warp-spec +
-// cta_group::2 kernels (knowledge sec 8.1, 10 disconfirmation rounds).
+// cta_group::2 kernels.
 // The default `.scope=.cta` form does NOT trigger the trap. For
 // cross-CTA TMEM-free signaling in such kernels, use the default-scope
-// form (`mbarrier_arrive_cluster_default`) -- see knowledge sec 8.3.
+// form (`mbarrier_arrive_cluster_default`).
 
 // Default-scope arrive on a cluster-shared mbarrier. PTX implicit
 // .sem=.release, .scope=.cta. Address must point to .shared::cluster
@@ -94,7 +94,7 @@ void mbarrier_arrive_cluster_default(uint32_t cluster_smem_addr) {
 
 // Cluster-scope release arrive on a cluster-shared mbarrier. AVOID for
 // persistent + warp-spec + cta_group::2 sm_100a kernels (triggers the
-// alloc state-machine guardrail trap; knowledge sec 8.1 / sec 8.3).
+// alloc state-machine guardrail trap).
 // Provided for completeness and for non-warp-spec cluster-coordination
 // patterns where the cluster-wide memory ordering is required.
 __device__ __forceinline__

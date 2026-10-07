@@ -3,8 +3,7 @@
 // make_tma_2d_tiled produces a non-zero 128-byte tensormap for a valid
 // descriptor and returns an error for an obviously invalid one.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,14 +19,13 @@
 #include "23_tma_tensormap.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
 
 
 static int run_ours() {
-  /* (orig args dropped) */
   float* d = nullptr;
   CUDA_CHECK(cudaMalloc(&d, 64 * 64 * sizeof(float)));
 
@@ -49,14 +47,13 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: TMA tensormap host-side creation -- compile verification
 // Build: nvcc -arch=sm_90a -I../primitives -I. -lcuda -o ../build/23_test 23_tma_tensormap_test.cu
 
 static int run_theirs() {
-  /* (orig args dropped) */
     // Verify all overloads compile and the API is callable.
     // Runtime requires compatible CUDA driver.
     printf("23_tma_tensormap: compiled successfully.\n");
@@ -67,7 +64,7 @@ static int run_theirs() {
 }
 
 
-// Round 4h: INT8 / UINT8 / INT32 / UINT32 dtype convenience wrappers.
+// INT8 / UINT8 / INT32 / UINT32 dtype convenience wrappers.
 // Host-side encoder check: build a tensormap with each new dtype and
 // confirm the encoder populated it (no GPU launch needed -- the
 // wrappers just wrap cuTensorMapEncodeTiled which is host-side).

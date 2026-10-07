@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 24_tma_tensormap_replace_test.cu -- compile smoke for tensormap.replace.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,7 +24,7 @@
 #include "36_fence_proxy_tensormap.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -41,7 +40,6 @@ __global__ void k_replace(CUtensorMap* desc, const float* new_base) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   float *dA = nullptr, *dB = nullptr;
   CUDA_CHECK(cudaMalloc(&dA, 64 * 64 * 4));
   CUDA_CHECK(cudaMalloc(&dB, 64 * 64 * 4));
@@ -63,7 +61,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: tensormap.replace.tile.global_address -- correctness + timing
@@ -140,7 +138,6 @@ __global__ void replace_then_load_kernel(CUtensorMap* d_tmap,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 
@@ -230,7 +227,7 @@ static int run_theirs() {
 
 
 // =============================================================================
-// .shared::cta dst-space tensormap.replace (Phase 3 HIGH)
+// .shared::cta dst-space tensormap.replace
 // =============================================================================
 
 // Copies a 128-byte tensormap from GMEM into SMEM, mutates it via the
@@ -312,7 +309,7 @@ static int run_smem_replace() {
 }
 
 // =============================================================================
-// MED: tensormap.replace.swizzle_mode (round 4i, free-agent item)
+// tensormap.replace.swizzle_mode
 // =============================================================================
 //
 // Strategy: copy a host-built SWIZZLE_NONE tensormap into SMEM, mutate

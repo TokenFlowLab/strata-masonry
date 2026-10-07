@@ -2,8 +2,7 @@
 // 30_mbarrier_arrive_test.cu -- N threads each arrive once; try_wait
 // completes when all N have arrived.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +21,7 @@
 #include "33_mbarrier_try_wait.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -41,7 +40,6 @@ __global__ void k_arrive(int* ok) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 4));
   CUDA_CHECK(cudaMemset(d, 0, 4));
   k_arrive<<<1, 32>>>(d);
@@ -54,7 +52,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: mbarrier.arrive producer/consumer sync
@@ -131,7 +129,6 @@ __global__ void single_thread_count32_kernel(uint32_t* out) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

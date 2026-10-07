@@ -8,8 +8,7 @@
 // nonzero AND that the four "canonical" forms (evict_last,
 // evict_normal, evict_first, evict_unchanged) produce 4 distinct
 // values. End-to-end producer-consumer coverage (createpolicy ->
-// tma_load_2d_2sm_l2hint) is exercised by the load_warp block tests in
-// step 3.
+// tma_load_2d_2sm_l2hint) is exercised by the load_warp block test (#88).
 
 #include <cstdio>
 #include <cstdint>

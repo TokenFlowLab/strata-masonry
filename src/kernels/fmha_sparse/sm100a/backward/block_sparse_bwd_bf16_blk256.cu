@@ -158,7 +158,7 @@ __device__ __forceinline__ void warp_regs_dec_104() {
   asm volatile("setmaxnreg.dec.sync.aligned.u32 104;");
 }
 
-// --- 2-CTA cluster primitives (FA4 2cta PTX forms, fa4_bwd_extract) ---
+// --- 2-CTA cluster primitives (FA4 2cta PTX forms) ---
 
 // DSMEM peer mapping: cluster rank lives in address bit 24 on the 2-CTA pair;
 // the leader (rank 0) barrier address is local_addr & ~bit24 (FA4 PTX form).
@@ -1498,7 +1498,7 @@ vsa_bwd_preprocess_kernel(const __nv_bfloat16* __restrict__ o,
   }
 }
 
-// Postprocess -- FA4's exact scheme (fa4_bwd_postprocess.py):
+// Postprocess -- FA4's exact scheme:
 // one CTA per (q tile, head), 128 threads, 64KB SMEM.
 //   A. G2S: the whole 16384-f32 drain-native tile loaded CONTIGUOUSLY via
 //      cp.async.cg (32 x 16B per thread), wait, barrier.
@@ -2089,7 +2089,7 @@ static void run(const Sh& sh) {
     snprintf(p, sizeof p, "/lse_S%d_blk%d.npy", S, BLOCK);
     file_M = npy_load_vec<float>(std::string(load_npy) + p);
     if (o_bits.size() != hO.size() || file_M.size() != hM.size()) {
-      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun gen_inputs.py\n");
+      fprintf(stderr, "LOAD_NPY: forward state size mismatch; rerun block_sparse_bf16_gen_inputs.py\n");
       exit(1);
     }
     file_O.resize(o_bits.size());
@@ -2269,8 +2269,8 @@ static void run(const Sh& sh) {
         npy_save_f32(prefix + "_dv.npy", gdv.data(), {tq, (long)H, (long)hd});
       }
       // dq gate 8e-3: the CPU-ref-vs-torch-fp32 noise floor from the
-      // production bf16 quantization points is ~1.9-2.7e-3 (oracle_bwd.py,
-      // 2026-08-25), GPU-vs-CPU can legitimately reach ~2x that, and the
+      // production bf16 quantization points is ~1.9-2.7e-3, GPU-vs-CPU can
+      // legitimately reach ~2x that, and the
       // bf16-rounded dq output adds its own rounding on top.
       if (run_cpu) {
         const double rq_gate = 8e-3;

@@ -27,8 +27,6 @@
 //   - Does NOT order against ordinary shared stores. Use a fence if the same
 //     addresses are also written non-async.
 //
-// Source: verified against NVIDIA TGV kernel (tgv_extract/common.cuh:139,
-//         store_shared_remote_f32).
 // PTX:    9.7.10.12 (st.async)
 //
 #pragma once

@@ -17,8 +17,7 @@
 //     +/-1.0 for |z| > ~9.0). Avoids the special-value slow path that
 //     `__expf` enters on large accumulator magnitudes.
 //
-// This is the canonical fast form used by CUTLASS's `Silu` on SM 9.0+
-// and by trtllm-gen's `GemmGatedAct` EPI on Blackwell.
+// This is the canonical fast form used by CUTLASS's `Silu` on SM 9.0+.
 
 #pragma once
 

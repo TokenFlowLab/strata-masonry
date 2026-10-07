@@ -9,7 +9,7 @@
 //
 // Tile geometry: M_TILE_CLUSTER=256, M_TILE_PER_CTA=128,
 // N_TILE_CLUSTER=256/128 (template), N_TILE_PER_CTA=NTC/2, K_TILE=64,
-// NUM_STAGES=6, EPI_SUB_COLS=32.
+// NUM_STAGES=5, EPI_SUB_COLS=64.
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -62,7 +62,7 @@
 #include "../../../blocks/97_sched_warp_clc.cuh"
 #include "../../../blocks/107_idle_warp_blackwell.cuh"
 
-// Compile-time tile geometry constants (skel_v2-style, no Cfg struct).
+// Compile-time tile geometry constants (no Cfg struct).
 constexpr int K0_M_TILE_CLUSTER = 256;
 constexpr int K0_M_TILE_PER_CTA = 128;
 constexpr int K0_K_TILE         = 64;
@@ -189,16 +189,14 @@ dense_gemm_bf16_k0_impl(
   } else if (warp == 1) {
     // griddepcontrol.wait at sched-warp entry pairs with the host-side
     // cudaLaunchAttributeProgrammaticStreamSerialization attribute so
-    // the dependent grid's setup overlaps with the prior grid's tail
-    // (K0 TODO 3, ~1-2% expected).
+    // the dependent grid's setup overlaps with the prior grid's tail.
     sched_warp_clc_blackwell_ntiles_2sm_bf16<
         /*USE_GRIDDEP_WAIT=*/true, CLC_CSM, CLC_CSN, ORDER>(wpc, clc_full_bar, clc_empty_bar, clc_response,
         throttle_full, throttle_empty, peer, lane);
   } else if (warp == 2) {
     // L2::evict_last on every TMA load -- bias the persistent kernel's
     // working set (A and B operand slabs) toward staying in L2 across
-    // CLC-stolen tiles. K0 TODO 2 (~2-5% expected on compute-bound
-    // shapes per V56 static comparison).
+    // CLC-stolen tiles.
     const uint64_t cache_policy = make_l2cache_policy_evict_last_full();
     load_warp_blackwell_ntiles_2sm_bf16<
         NUM_STAGES, M_TILE_PER_CTA, N_TILE_PER_CTA, K_TILE,
@@ -253,7 +251,7 @@ __global__ void ref_gemm_bf16_kernel(const __nv_bfloat16* __restrict__ A,
 }
 
 // Fill mode selector (set from --fill=N CLI arg in main).
-//   1 = [-0.5, 0.5) with 256 discrete values  (default; v56port-style)
+//   1 = [-0.5, 0.5) with 256 discrete values  (default)
 //   2 = [-1.0, 1.0) with 2048 discrete values (wider range)
 //   3 = constant 1.0                          (debug: partial-write detection)
 //   4 = integers {-3,..,3} (7 values)         (cutlass_profiler FP16 default)
@@ -449,8 +447,7 @@ static double run_one_impl(int M, int N, bool verify, bool benchmark,
 template <int NTC, ClcRasterOrder ORDER>
 static double run_one_kdispatch(int M, int N, int K, bool verify,
                                 bool benchmark, const char* dump_output) {
-  // Force-instantiate K_BLOCKS ∈ {1,2,4,8,32,64} to match skel_v2's
-  // cubin instantiation set exactly.
+  // Force-instantiate K_BLOCKS ∈ {1,2,4,8,32,64}.
   switch (K) {
     case   64: return run_one_impl< 1, NTC, ORDER>(M, N, verify, benchmark, dump_output);
     case  128: return run_one_impl< 2, NTC, ORDER>(M, N, verify, benchmark, dump_output);
@@ -541,12 +538,11 @@ int main(int argc, char** argv) {
     fprintf(stderr, "--dump-output requires --shape=M,K,N\n"); return 1;
   }
 
-  // V0 shape inventory (Cosmos3 256GPU iter 5000, Qwen3-VL-30B-A3B-Instruct).
-  // Format: (label, M, K, N).
+  // Shape inventory. Format: (label, M, K, N).
   //
   // UND shapes have production M=14046 which is not a multiple of
   // M_TILE_CLUSTER=256. Rounded up to 14080 (= 55*256) so the kernel
-  // can bench the shape; tile-tail handler is a separate tune item.
+  // can bench the shape; there is no tile-tail handling.
   struct Shape { const char* label; int M; int K; int N; };
   const Shape v0_shapes[] = {
       { "und-gate", 14080, 2048,  128 },  // M padded 14046 -> 14080

@@ -47,7 +47,7 @@ struct BlackwellPipelineBars {
 // Per-mbarrier arrive_counts for `pipeline_init_blackwell`. CTA_GROUP
 // template param scales CTA-scaled counts (acc_empty, clc_empty) by the
 // cluster size: 2SM = 2 CTAs (default), 1SM = 1 CTA. Other defaults
-// match the canonical K0 numbers; override per-kernel. CTA-scaled
+// match the dense GEMM's numbers; override per-kernel. CTA-scaled
 // arrival counts shift by cluster size.
 template <int CTA_GROUP = 2>
 struct BlackwellPipelineArriveCounts {

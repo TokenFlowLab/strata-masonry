@@ -1,8 +1,7 @@
 // Dense BF16 FlashAttention backward for Blackwell sm_100a.
 //
 // The file is intentionally self-contained: CPU reference, verification,
-// preprocess, main backward (added in M2/M3), postprocess, and driver remain
-// together until the monolithic kernel is correct and tuned.
+// preprocess, main backward, postprocess, and driver.
 
 #include <cuda_bf16.h>
 #include <cuda_runtime.h>
@@ -82,7 +81,7 @@ constexpr int D128_2CTA_HEADER_BYTES = 1024;
     }                                                                          \
   } while (0)
 
-// M6 cluster protocol gate. Each peer publishes its rank in local shared
+// 2CTA cluster protocol gate. Each peer publishes its rank in local shared
 // memory, synchronizes the 2-CTA cluster, and validates both DSMEM mappings.
 // Keeping this in the end-to-end binary makes every full verifier exercise
 // the exact launch attribute and peer-address protocol used by D128 2CTA.
@@ -151,7 +150,7 @@ bool run_cluster_protocol_gate() {
     pass = pass && host_out[6 + rank] == 0;
     pass = pass && host_out[8 + rank] == 1;
   }
-  std::printf("M6 2CTA cluster launch/rank/mapa gate: %s\n",
+  std::printf("2CTA cluster launch/rank/mapa gate: %s\n",
               pass ? "PASS" : "FAIL");
   return pass;
 }
@@ -669,7 +668,7 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
                           int batch, int heads, int seqlen) {
   static_assert(HEAD_DIM == 64 || HEAD_DIM == 128);
   static_assert(!USE_2CTA || HEAD_DIM == 128,
-                "D64 supports only the accepted 1CTA path");
+                "D64 supports only the 1CTA path");
   // Match the forward-kernel convention: USE_2CTA controls algorithmic
   // branches; CTA_GROUP is derived only for tcgen05 primitives/composites.
   constexpr int CTA_GROUP = USE_2CTA ? 2 : 1;
@@ -744,7 +743,7 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
       static_cast<std::size_t>(head_linear) * seq;
   constexpr int K_TILE_ELEMENTS = K_TILE * HEAD_DIM;
 
-  // D64 tcgen05 bring-up. All five matrix products use tensor cores. Each
+  // D64 tcgen05 path. All five matrix products use tensor cores. Each
   // role remains inline in this one kernel.
   if constexpr (HEAD_DIM == 64) {
     __nv_bfloat16* t_k = reinterpret_cast<__nv_bfloat16*>(shared_raw);
@@ -1462,7 +1461,7 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
     return;
   }
 
-  // D128 dense 1-CTA tensor-core bring-up. The TMEM map matches the dense
+  // D128 dense 1-CTA tensor-core path. The TMEM map matches the dense
   // FA4 contract: S/P[0:128], dV[128:256], dP/dS/dQ[256:384], and
   // dK[384:512]. Q/metadata are double-buffered, dO is single-buffered, and
   // dQ uses a two-stage 128x32 FP32 TMA reduce-add ring.
@@ -1470,13 +1469,13 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
     // FA4 keeps all pipeline/cluster mbarriers in a compact header before
     // the aligned matrix buffers. In particular, DSMEM arrivals must not
     // target barriers parked at the extreme end of the opt-in SMEM window.
-    // Preserve the accepted 1-CTA byte layout and apply the header only to
-    // the dedicated D128 2-CTA specialization.
+    // The 1-CTA byte layout has no header; it applies only to the dedicated
+    // D128 2-CTA specialization.
     unsigned char* d128_payload =
         shared_raw + (USE_2CTA ? D128_2CTA_HEADER_BYTES : 0);
     // Dense FA4 USE_2CTA SharedStorage order after the barrier header:
     // sQ, sK, sV, sdO, sQt, sdOt, sdS_xchg, sKt, sdS,
-    // sLSE, sdPsum, sdQaccum. Keep the accepted 1-CTA layout unchanged.
+    // sLSE, sdPsum, sdQaccum. The 1-CTA layout differs.
     __nv_bfloat16* t_q_score_2cta =
         reinterpret_cast<__nv_bfloat16*>(d128_payload);
     __nv_bfloat16* t_k = USE_2CTA
@@ -1602,7 +1601,7 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
     }
 
     // FA4's inert roles donate immediately and do not reconverge through a
-    // CTA-wide teardown.  USE_2CTA retains its established relay path.
+    // CTA-wide teardown.  USE_2CTA keeps its relay path.
     if constexpr (!USE_2CTA) {
       if (warp >= 14) {
         setmaxnreg_dec<24>();
@@ -1893,8 +1892,8 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
 
     // Instantiate a compiler-distinct consumer loop for each FA4 role in the
     // 2CTA path.  This gives ptxas the same role-local live ranges as CuTe's
-    // separate mma/compute/dQacc_reduce calls while retaining the accepted
-    // legacy 1CTA loop in the fallback specialization.
+    // separate mma/compute/dQacc_reduce calls; the fallback specialization
+    // keeps the shared 1CTA loop.
     auto consumer_loop = [&](auto role_tag) {
       constexpr int DENSE_ROLE = decltype(role_tag)::value;
       for (int consumer_iter = 0;
@@ -2708,8 +2707,8 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
             }
           }
 
-          // Preserve the accepted 1-CTA schedule. Its dP(next) remains after
-          // dQ(cur); the strict FA4 2-CTA order is issued above.
+          // 1-CTA schedule: dP(next) issues after dQ(cur); the strict FA4
+          // 2-CTA order is issued above.
           if constexpr (!USE_2CTA) {
           if (has_next_m) {
             const int next_iter = consumer_iter_u + 1;
@@ -3132,8 +3131,7 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
     }
     __syncthreads();
 
-    // MMA WARP (12): correctness producer for S and dP. These scalar dot
-    // products are the exact region replaced by tcgen05 in the next stage.
+    // MMA WARP (12): scalar correctness producer for S and dP.
     if (warp == 12) {
       for (int key_local = lane; key_local < K_TILE; key_local += 32) {
         const int key = key_start + key_local;
@@ -3225,8 +3223,8 @@ fmha_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
   }
 }
 
-// Fixed dense FA4 specialization used by the selected 1CTA optimization
-// targets.  The grid is generic in B*H; sequence length, head dimension, and
+// Fixed dense FA4 1CTA specialization for the benchmark sequence lengths.
+// The grid is generic in B*H; sequence length, head dimension, and
 // algorithmic mode are static.
 //
 // This is deliberately a separate specialization rather than another branch
@@ -4207,8 +4205,8 @@ void make_inputs(int batch, int heads, int seqlen, int headdim,
   }
 }
 
-// FP32 reference for forward O/LSE and all three backward gradients. M1 uses
-// O/LSE/D; M2/M3 reuse dq/dk/dv without introducing a second reference path.
+// FP32 reference for forward O/LSE and all three backward gradients. The
+// preprocess/postprocess suite uses O/LSE/D; the main-kernel suite uses dq/dk/dv.
 CpuReference cpu_forward_backward(
     int batch, int heads, int seqlen, int headdim, bool causal,
     const std::vector<__nv_bfloat16>& q,
@@ -4498,7 +4496,7 @@ bool run_m1_case(int batch, int heads, int seqlen, int head_dim,
                     zero_stats.mismatches == 0 &&
                     post_stats.mismatches == 0;
   std::printf(
-      "M1 %-18s B=%d H=%d S=%d D=%d causal=%d: %s "
+      "prepost %-18s B=%d H=%d S=%d D=%d causal=%d: %s "
       "[D abs=%.3e, LSE2 abs=%.3e, clear bad=%d, post bad=%d]\n",
       label, batch, heads, seqlen, head_dim,
       static_cast<int>(is_causal), pass ? "PASS" : "FAIL", d_stats.max_abs,
@@ -4526,7 +4524,7 @@ bool run_m1_suite() {
   pass = run_m1_case(2, 2, 129, 64, true, "d64-c-tail") && pass;
   pass = run_m1_case(1, 2, 33, 128, false, "d128-nc-tail") && pass;
   pass = run_m1_case(2, 1, 130, 128, true, "d128-c-tail") && pass;
-  std::printf("M1 preprocess/postprocess suite: %s\n",
+  std::printf("preprocess/postprocess suite: %s\n",
               pass ? "PASS" : "FAIL");
   return pass;
 }
@@ -4723,7 +4721,7 @@ bool run_main_case(int batch, int heads, int seqlen, int head_dim,
   const bool pass = dq_stats.mismatches == 0 && dk_stats.mismatches == 0 &&
                     dv_stats.mismatches == 0;
   std::printf(
-      "M2 %-18s B=%d H=%d S=%d D=%d causal=%d: %s "
+      "main %-18s B=%d H=%d S=%d D=%d causal=%d: %s "
       "[dQ abs=%.3e bad=%d, dK abs=%.3e bad=%d, "
       "dV abs=%.3e bad=%d]\n",
       label, batch, heads, seqlen, head_dim,
@@ -4785,7 +4783,7 @@ bool run_main_suite() {
                        true) && pass;
   pass = run_main_case(2, 2, 256, 128, true, "d128-c-2cta-bh",
                        true) && pass;
-  std::printf("M2/M3 ownership/tcgen05 suite: %s\n",
+  std::printf("main backward suite: %s\n",
               pass ? "PASS" : "FAIL");
   return pass;
 }
@@ -4933,7 +4931,7 @@ void run_benchmark(int batch, int seqlen, int warmup, int iterations,
   const double latency_ms = fmha_context_bwd_bf16_benchmark::measure(
       launch_iteration, warmup, iterations);
   if (latency_ms > 0.0) {
-    // Preserve the historical backward convention: causal work is S*S/2.
+    // Backward FLOP convention: causal work is S*S/2.
     double forward_flops = 4.0 * batch * seqlen * seqlen * heads * HEAD_DIM;
     if constexpr (IS_CAUSAL) forward_flops *= 0.5;
     const double tflops = 2.5 * forward_flops / latency_ms / 1.0e9;

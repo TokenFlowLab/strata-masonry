@@ -52,7 +52,7 @@
 #include "../src/primitives/73_tma_load_2d_gather4.cuh"
 
 constexpr int M_CLUSTER  = 256;
-constexpr int M_PER_PEER = M_CLUSTER / 2;   // 128 (matches K1's M_TILE_PER_CTA)
+constexpr int M_PER_PEER = M_CLUSTER / 2;   // 128
 constexpr int N          = 8;
 constexpr int K          = 64;
 constexpr int N_GATHER_CALLS = M_PER_PEER / 4;  // 16

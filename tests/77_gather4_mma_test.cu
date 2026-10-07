@@ -13,10 +13,8 @@
 //   per lane to D[lane, 0..7] in GMEM.
 //   Host compares D[0..31, :] vs A[0..31, :] @ B[:, :]^T computed in fp32.
 //
-// Goal: confirm gather4 + MMA work together. If this passes, the K1
-// gather kernel's hang is from pipeline orchestration (mbarrier protocol,
-// 2SM cta_group::2 cross-peer signaling), not from gather4/MMA
-// integration at the data-path level.
+// Goal: confirm gather4 + MMA work together at the data-path level,
+// independent of pipeline orchestration (mbarrier protocol, 2SM signaling).
 
 #include <cstdio>
 #include <cstdlib>
@@ -101,7 +99,7 @@ __global__ void k_gather4_mma(const __grid_constant__ CUtensorMap tmap_a,
   // === MMA ===
   if (threadIdx.x == 0) {
     // SMEM descriptors: SWIZZLE_128B matches the TMA descriptor's swizzle.
-    // SBO/LBO conventions per CUTLASS / books primitive 42.
+    // SBO/LBO conventions per CUTLASS / primitive 42.
     constexpr uint32_t A_LBO = 16;
     constexpr uint32_t A_SBO = 1024;
     constexpr uint32_t B_LBO = 16;
@@ -111,7 +109,7 @@ __global__ void k_gather4_mma(const __grid_constant__ CUtensorMap tmap_a,
     const uint64_t desc_b = build_smem_desc_blackwell(
         smem_ptr_u32(smB), B_SBO, B_LBO, SmemSwizzleBlackwell::B128);
     uint32_t idesc = make_idesc_bf16_f32(M, N);
-    // K=64, K_ATOM_K=16 -> 4 atoms. Per K1: each atom advances the SMEM
+    // K=64, K_ATOM_K=16 -> 4 atoms. Each atom advances the SMEM
     // descriptor by 2 units (= 32 bytes) along K.
     constexpr int K_ATOMS = K / 16;
     #pragma unroll

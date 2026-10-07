@@ -38,7 +38,7 @@ void tma_prefetch_2d_l2hint(const void* tensormap_ptr,
 }
 
 // prefetch.tensormap [a]
-//   Prefetch the 128 B tensormap itself. trtllm-gen issues this for every descriptor at kernel
+//   Prefetch the 128 B tensormap itself. Typically issued for every descriptor at kernel
 //   entry, unguarded, before any warp specialization.
 // PTX: 9.7.10.29 (prefetch.tensormap)
 __device__ __forceinline__

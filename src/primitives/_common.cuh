@@ -1,5 +1,5 @@
 // Internal helpers shared across primitive headers (unnumbered, infrastructure).
-// PLAN: not a numbered primitive; mirrors tests/test_utils.cuh pattern for non-PTX code.
+// Not a numbered primitive; mirrors tests/test_utils.cuh pattern for non-PTX code.
 #pragma once
 
 // PTX:    n/a (test-helper aliases for the primitives layer)

@@ -4,7 +4,7 @@
 //
 // ARCH: sm_100a
 //
-// 2-stage TMEM-accumulator pipeline that escapes the sec-8.1 alloc
+// 2-stage TMEM-accumulator pipeline that escapes the tcgen05 alloc
 // state machine guardrail trap when composed with persistent multi-tile
 // kernels. Each stage owns one half of a 2x N_TILE_CLUSTER TMEM
 // allocation; the producer (MMA warp) and consumer (epilogue warps)

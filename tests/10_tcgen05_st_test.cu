@@ -8,8 +8,8 @@
 // without hang. Functional bit-equality round-trip is covered by the
 // .32x32b.x8 ld/st round-trip in #9.
 //
-// Phase 4 round 4a (Bravo) extension -- for the 12 expanded variants added
-// in e40352e the test does a per-variant non-zero round-trip:
+// For the 12 expanded variants the test also does a per-variant non-zero
+// round-trip:
 //   .32x32b.x{16,32}
 //   .32x32b.x{2,8}.unpack::16b
 //   .16x256b.x1.unpack::16b
@@ -60,7 +60,7 @@ __global__ void k_st() {
 }
 
 // ---------------------------------------------------------------------------
-// Per-variant non-zero round-trip helpers (Phase 4 round 4a).
+// Per-variant non-zero round-trip helpers.
 // ---------------------------------------------------------------------------
 
 constexpr int ST_VARIANT_COUNT = 12;
@@ -257,7 +257,7 @@ int main() {
   printf("tcgen05.st baseline variants : compile + run OK\n");
 
   // ------------------------------------------------------------------
-  // Part 2 -- per-variant non-zero round-trip (Phase 4 round 4a).
+  // Part 2 -- per-variant non-zero round-trip.
   // ------------------------------------------------------------------
   uint32_t* d_nz = nullptr;
   CUDA_CHECK(cudaMalloc(&d_nz, ST_VARIANT_COUNT * sizeof(uint32_t)));

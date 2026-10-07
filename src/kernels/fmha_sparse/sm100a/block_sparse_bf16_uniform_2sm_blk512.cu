@@ -19,14 +19,8 @@
 //   THE TRAFFIC SAVING IS NOT WHY IT WINS, THOUGH: these shapes are compute/pipeline-bound, not
 //   bandwidth-bound. DRAM traffic is UNCHANGED (251.6 -> 254.1 MB at S=32768) at ~0.2-0.35 TB/s of
 //   an ~8 TB/s HBM = 3-4% utilization, already the compulsory floor -- the requests removed were L2
-//   hits that cost nothing. What actually made this kernel fast was rebasing it onto the _inline
-//   (tuned) lineage, above all the FA4-shape softmax.
-//   CURRENT STANDING (TFLOPS over selected blocks, 25% density, shared .npy inputs): this is the
-//   FASTEST VSA kernel at 8K and 131K and within ~3% of 1CTA blk256 elsewhere --
-//     S        4K    8K    16K   32K   64K   131K
-//     this    910  1261  1306  1584  1616  1545
-//     1CTA b256  921  1250  1309  1586  1635  1445
-//   Pick per shape; neither is a clean default.
+//   hits that cost nothing. Its speed comes from the tuned pipeline, above all the FA4-shape softmax.
+//   It is on par with 1CTA blk256 (ahead at 8K and 131K); pick per shape.
 //
 // VSA design (fixed):
 //   - SPARSE_BLOCK = 512 tokens: the top-k selection granularity AND the query-block granularity
@@ -39,20 +33,19 @@
 //     the SAME top-k list. Zero union inflation, one id cache, ONE K/V stream.
 //   - Work item: one CLUSTER per (sample, head, 512-block pidx) -- no block pairing, so nb needs no
 //     parity. Joint M-tile m = rows [pidx*512 + m*256, +256); peer p supplies its [p*128, +128) half.
-//   - ONE K/V STREAM (the dense blocks/111 / 1CTA blk512 discipline): the ring slot is waited once,
+//   - ONE K/V STREAM (the dense blocks/111 discipline): the ring slot is waited once,
 //     BOTH joint M-tiles' MMA groups issue against it, and it is freed once after the last group.
 //     Produce/consume order: K(0) | per kt: V(kt), K(kt+1) | V(last).
 //     GOTCHA: with one slot feeding two groups the MMA warp MUST walk its descriptors with
 //     desc_add_lo (see SmemDescPair below), or the two groups' identical descriptor gets CSE'd and
-//     the second group reads row 0 of the tile. That bug cost a full debug cycle in the 1CTA blk256
-//     kernel; gate any change here with DUMP_O + the external oracle, not the built-in verify.
+//     the second group reads row 0 of the tile. Gate any change here with DUMP_O +
+//     block_sparse_bf16_cpu_verifier.py, not the built-in verify.
 //   - K loading: the 2SM K half-box per peer covers 64 tokens; K-tile kt is the (kt % 4)-th 128-token
 //     quarter of selected 512-block (kt / 4), so peer p loads coordinate
 //     sample*seqlen + block_id*512 + (kt % 4)*128 + peer*64.
 //   - V loading: per peer, V_SUBTILES = 2 pieces of 64 tokens at the same token coordinate, V^T row
 //     coordinate head*HEAD_DIM + peer*(HEAD_DIM/2) (D-split across the peers).
-//   - Ring: slots are 16 KB = THIS peer's half-box only (the blk128 2SM reserved 32 KB and filled
-//     half), NUM_KV_STAGES = 6 -> the same 96 KB of SMEM as its 3 x 32 KB.
+//   - Ring: slots are 16 KB = THIS peer's half-box only, NUM_KV_STAGES = 6 -> 96 KB of SMEM.
 //   - MHA only (HQ == HK), non-causal, D = 128, bf16, uniform seqlen = nb * SPARSE_BLOCK.
 //
 // TMEM LIFETIME / TEARDOWN (dense-2SM contract -- do not reintroduce a named barrier here): the MMA
@@ -61,7 +54,7 @@
 //   precede the dispatch, so no entry rendezvous is needed. Teardown is wp_flush + __syncthreads()
 //   (this CTA is done with TMEM) + cluster join (the peer is too) + dealloc; leftover in-flight
 //   mbarrier arrives at kernel exit are harmless and are NOT drained. A 13-warp
-//   bar_arrive<9>/bar_sync<9> protocol plus closing primes and closed-form tail drains DEADLOCKED
+//   bar_arrive<9>/bar_sync<9> protocol plus closing primes and closed-form tail drains deadlocks
 //   intermittently here (a closing prime racing the MMA's epilogue waits).
 //
 // Barrier contract, budgets (softmax inc<176> x8 + corr dec<88> x4 + singles dec<72> x4), TMEM
@@ -73,8 +66,7 @@
 // PERF NOTE: blk512 removes the structural objection to 2SM that blk256 had (there, per CTA, the
 // two streams loaded 64+64 tokens per K-step -- exactly the 128 tokens 1CTA loads once and shares).
 // Here one gather feeds 512 query rows and the K/V requests really do halve (ncu-confirmed) -- but
-// that saving is free, not decisive (see the header). The win came from the _inline lineage rebase.
-// This kernel is the fastest VSA kernel at 8K and 131K and within ~3% of 1CTA blk256 elsewhere.
+// that saving is free, not decisive (see the header).
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -133,11 +125,8 @@
 #include "../../../composites/109_fastdivmod.cuh"
 #include "../../../composites/112_fmha_softmax_utils.cuh"
 
-// blk256: the SPARSE block (top-k selection granularity, and the query-block granularity) is 256 tokens
-// = EXACTLY the joint cta_group::2 MMA's M. So one joint M-tile == one 256 sparse block, and BOTH peers'
-// 128-row halves of it index the SAME top-k list -> ZERO union inflation, and the blk128 2SM kernel's
-// union_idx / union_num / membership-bitmask machinery is GONE (it existed only because that kernel welds
-// two DIFFERENT q-blocks, with different lists, into one joint MMA).
+// The 512-token SPARSE block = the cluster's 2 joint M-tiles, so every row indexes the SAME top-k
+// list -> ZERO union inflation, no union / membership-bitmask machinery.
 constexpr int SPARSE_BLOCK = 512;                // top-k selection granularity == the CLUSTER's query rows
 constexpr int BLOCK  = 128;                      // MMA datapath tile (per-CTA M rows / keys per K-tile)
 constexpr int M_TILE = BLOCK;                    // this CTA's 128-row half of a joint 256-row M-tile
@@ -156,9 +145,7 @@ constexpr int V_SUBTILES = K_TILE / SUB_COLS_BF16;    // 2 (per-peer half-hd V t
 constexpr int Q_SUB_COLS_BYTES = M_TILE * SUB_COLS_BYTES;       // 16 KB
 constexpr int Q_TILE_BYTES = Q_SUBTILES * Q_SUB_COLS_BYTES;     // 32 KB
 constexpr int K_TILE_BYTES = K_SUBTILES * (K_TILE * SUB_COLS_BYTES);   // 32 KB = both peers' halves
-// Ring slot = THIS peer's half-box only (16 KB), as in the dense 2SM kernel -- the blk128 2SM VSA
-// reserved a full 32 KB per slot and left half unused. Same 96 KB of SMEM now buys 6 stages, and the
-// blk256 producer issues FOUR slot loads per K-step (two interleaved streams), so the depth is needed.
+// Ring slot = THIS peer's half-box only (16 KB), as in the dense 2SM kernel: 96 KB of SMEM buys 6 stages.
 constexpr int KV_SLOT_BYTES = K_TILE_BYTES / 2;                        // 16 KB
 constexpr int V_TILE_BYTES = V_SUBTILES * Q_SUB_COLS_BYTES;     // 32 KB across both peers
 constexpr int NUM_KV_STAGES = 6;
@@ -171,12 +158,12 @@ constexpr int EX2_RES       = 4;           // FA4 ex2_emu_res
 constexpr int EX2_START_FRG = 1;           // FA4-2CTA: fragment 0 pure-HW EX2
 constexpr int W_CORR0 = 8;
 // 64-bit SMEM descriptor; the atom walk adds to the LOW word only (the hi/swizzle word is
-// walk-invariant). Copied from the dense fmha_context_bf16_uniform_inline.cu, and LOAD-BEARING FOR
+// walk-invariant). As in the dense fmha_context_bf16_uniform_inline.cu, and LOAD-BEARING FOR
 // CORRECTNESS in any kernel where ONE ring slot feeds TWO MMA groups (which is exactly what blk512's
 // shared K/V stream does): with plain uint64 descriptor arithmetic the compiler CSEs the identical
 // descriptor across the two groups into base+imm forms that rematerialize the hi word, and the second
 // group's B operand comes out wrong -- every output column reads row 0 of the tile. asm volatile pins
-// the serial chain and blocks that. (Cost a full debug cycle in the 1CTA blk256 kernel; see its header.)
+// the serial chain and blocks that.
 union SmemDescPair { uint64_t u64; uint2 w; };
 
 __device__ __forceinline__ void desc_add_lo(SmemDescPair& d, uint32_t inc) {
@@ -199,7 +186,7 @@ extern __shared__ __align__(1024) uint8_t fmha_smem[];
 // both joint M-tiles ride ONE top-k list (q2k_row0, no "+ m") and the kernel runs ONE shared K/V stream.
 // That is what blk256 could not do -- there a cluster spanned two different 256-blocks with two lists.
 // nkv = q2k_num[q2k_row0] is read by EVERY role on BOTH peers -> identical K-loop trip counts
-// (lockstep, like the 1CTA VSA's vsa_decode with q2k_num). Q_RASTER=true: block innermost (concurrent
+// (lockstep, like the 1CTA VSA's decode_workitem with q2k_num). Q_RASTER=true: block innermost (concurrent
 // clusters sit within one head -> its KV/topk blocks stay hot in L2); false: head innermost.
 // BOTH peers decode the SAME rows (nothing here depends on `peer`) -> joint-MMA lockstep.
 struct Vsa2Item { int sample, head, pidx, q2k_row0, nkv; };
@@ -475,7 +462,7 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
     // assumes ONE shared K/V stream (see the file header).
     setmaxnreg_dec<72>();
     constexpr int M_TILE_CLUSTER = JOINT_M;      // joint cta_group::2 MMA M-dim (256) = half a 512-block
-    // MMA-local geometry (was inside blocks/111 before this kernel inlined the 2-stream pipeline).
+    // MMA-local geometry.
     constexpr int K_ATOMS_PER_TILE = SUB_COLS_BF16 / 16;                 // 4
     constexpr int S_COLS = K_TILE;                                       // 128
     constexpr int O_COLS = HEAD_DIM;                                     // 128
@@ -509,17 +496,9 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
 
       // Only peer 0 (leader) issues the joint cta_group::2 MMA; peer 1 runs the loop for
       // CLC count-balance (clc_empty expects 32 arrives/work-item; a missing peer-1 -> SILENT HANG).
-      //
-      // INLINED (cannot call blocks/111): that block function is the DENSE shape -- ONE shared K/V
-      // stream, i.e. it waits full_bar[slot] once per K-tile and lets BOTH M-tiles issue against that
-      // single slot. Here the cluster's two joint M-tiles are two DIFFERENT 256-blocks with DIFFERENT
-      // top-k lists, so they need TWO interleaved streams: each M-tile waits and frees its OWN ring slot
-      // (the 1CTA VSA blk128 pattern), with the 2SM primitives (mma_f16_ss<2> / mma_f16_ts_2sm /
-      // commit_multicast<2>). Consume order matches the load warp exactly:
-      //   K(0,0) K(1,0) | per kt: V(0,kt) K(0,kt+1) V(1,kt) K(1,kt+1) | V(0,last) V(1,last)
       if (peer == 0) {
         const int num_k_tiles = it.nkv * KTILES_PER_BLOCK;
-        // ONE SHARED K/V STREAM (the dense uniform_inline / 1CTA blk512 discipline): the cluster's two
+        // ONE SHARED K/V STREAM (the dense uniform_inline discipline): the cluster's two
         // joint M-tiles are the two 256-row halves of ONE 512-block, so they consume the SAME K/V tiles.
         // The caller waits and frees the ring slot; bmm1/bmm2 take it and do no ring wait/commit.
         // Descriptors are WALKED with desc_add_lo -- with one slot feeding both groups, the plain
@@ -801,13 +780,13 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
       mbarrier_wait_parity_suspend(smem_ptr_u32(&empty_bar_alpha_and_l[m_tile]), scale_empty_ph.get_phase());
       scale_empty_ph.advance();
       wp_end(wpc, WP_SM_WAIT_SCALE);
-      // FA4-faithful softmax shape, ported from fmha_context_bf16_uniform_2sm_inline.cu (journey
-      // items #5 peeled-first-step and #6 one-body). Three coupled changes -- they only pay TOGETHER:
+      // FA4-shape softmax, as in fmha_context_bf16_uniform_2sm_inline.cu. Three coupled parts --
+      // they only pay TOGETHER:
       //   (a) k==0 is PEELED via is_first_c, so the steady body has no k==0 branch;
       //   (b) exp2 is written IN PLACE into scores2 (aliases s_regs), giving a free read-back;
       //   (c) the row-sum is REMOVED from the exp2 loop and deferred past the P stores AND
       //       wait_scale, so the S->P path that gates BMM2 carries no row-sum FADD2s.
-      // (b) requires scores2 to outlive the P store, which is why the old nested scope is gone.
+      // (b) requires scores2 to outlive the P store (no nested scope).
       float* const alpha_slot = &alpha_and_l_smem[m_tile * M_TILE + row_in_m_tile];
       const int num_k_tiles = it.nkv * KTILES_PER_BLOCK;
       auto softmax_step = [&](auto is_first_c) {
@@ -884,17 +863,17 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
         if constexpr (SPLIT_P) {
           tcgen05_st_32x32b_x32(p_tmem_addr,      *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
           tcgen05_st_32x32b_x16(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[32]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e: fence orders but does NOT complete the async STTM
+          tcgen05_wait_st();   // RACE FIX: fence orders but does NOT complete the async STTM
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive_cluster_default(mapa_shared_cluster_u32(smem_ptr_u32(&empty_bar_spo[m_tile]), 0));
           tcgen05_st_32x32b_x16(p_tmem_addr + SPLIT_P_COL, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[SPLIT_P_COL]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e
+          tcgen05_wait_st();   // RACE FIX
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive_cluster_default(mapa_shared_cluster_u32(smem_ptr_u32(&full_bar_p_last[m_tile]), 0));
         } else {
           tcgen05_st_32x32b_x32(p_tmem_addr,      *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
           tcgen05_st_32x32b_x32(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[32]>(&p_regs[32]));
-          tcgen05_wait_st();   // RACE FIX f22fb2e
+          tcgen05_wait_st();   // RACE FIX
           tcgen05_fence_before_thread_sync();
           mbarrier_arrive_cluster_default(mapa_shared_cluster_u32(smem_ptr_u32(&empty_bar_spo[m_tile]), 0));
         }
@@ -946,9 +925,8 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
   }
   wp_flush(wpc);
   // TMEM teardown, dense-2SM style: __syncthreads() proves every warp of THIS CTA is done with
-  // TMEM, the cluster join proves the peer CTA is too, then one warp deallocs. This replaces the
-  // old per-warp bar_sync<9> + closing-prime + tail-drain accounting (fragile: a closing prime
-  // racing the MMA's epilogue waits deadlocks the drain).
+  // TMEM, the cluster join proves the peer CTA is too, then one warp deallocs. Per-warp bar_sync<9>
+  // + closing-prime + tail-drain accounting is fragile: a closing prime racing the epilogue waits deadlocks.
   __syncthreads();
   barrier_cluster_arrive();
   barrier_cluster_wait();
@@ -1031,10 +1009,7 @@ static double run(const Sh& sh, bool verify) {
   const int  clusters_per_seq = nb;                // a CLUSTER does exactly ONE 512-block (its 2 joint M-tiles)
   const int  total_qblk = B * H * nb;              // one top-k list per 512-block
   const int  nclusters = B * H * clusters_per_seq;
-  // NOTE: no LIST_CORR / shared-pool knob here -- that existed in the blk128 2SM kernel only to control
-  // UNION inflation, and blk512 has no union at all (the whole cluster rides ONE 512-block list).
-  // No nb parity constraint either: a cluster is exactly ONE 512-block (blk256 needed nb even because
-  // a cluster there spanned an adjacent PAIR of 256-blocks).
+  // No union-inflation knob and no nb parity constraint: a cluster is exactly ONE 512-block (one list).
   if (topk < 1 || topk > nb) { printf("  [%s] SKIP: need 1 <= topk <= nb\n", sh.lab); return 0.0; }
 
   // ---- device buffers (bf16; V stored transposed as V_T for the BMM2 TMA) ----
@@ -1045,7 +1020,7 @@ static double run(const Sh& sh, bool verify) {
   CUDA_CHECK(cudaMalloc(&dO,  tq * H * hd * 2));
 
   std::vector<__nv_bfloat16> hQ(tq * H * hd), hK(tq * H * hd), hV(tq * H * hd);
-  const char* load_npy = getenv("LOAD_NPY");   // unified bench: shared Q/K/V + idx from .npy
+  const char* load_npy = getenv("LOAD_NPY");   // Q/K/V + idx from block_sparse_bf16_gen_inputs.py .npy
   if (load_npy) {
     const std::string d(load_npy);
     auto ld = [&](const char* nm, std::vector<__nv_bfloat16>& h) {
@@ -1075,10 +1050,10 @@ static double run(const Sh& sh, bool verify) {
 
   // ---- q2k index: topk DISTINCT 256-block ids per (b,h,256-block), fixed density ----
   // One list per 256 sparse block; BOTH peers of a joint M-tile read the SAME list, so there is no
-  // union and no membership mask (contrast the blk128 2SM kernel).
+  // union and no membership mask.
   std::vector<int> hq2k_idx((size_t)total_qblk * max_kv, 0);
   std::vector<int> hq2k_num(total_qblk, topk);
-  if (load_npy) {   // unified bench: head-independent [nb, topk] list, broadcast across heads
+  if (load_npy) {   // LOAD_NPY: head-independent [nb, topk] list, broadcast across heads
     char p[64]; snprintf(p, sizeof p, "/idx_S%d_blk%d.npy", S, SPARSE_BLOCK);
     auto idx = npy_load_vec<int32_t>(std::string(load_npy) + p);
     if (idx.size() != (size_t)nb * topk) { fprintf(stderr, "LOAD_NPY: idx size %zu != %d\n", idx.size(), nb * topk); exit(1); }

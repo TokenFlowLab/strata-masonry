@@ -180,7 +180,7 @@ def main():
         ap.error("--fwd-blocks must be a subset of --blocks")
     torch.backends.cuda.matmul.allow_tf32 = False
     os.makedirs(args.outdir, exist_ok=True)
-    print(f"gen_inputs: H={H} D={D} B=1 bf16 density={DENSITY} -> {os.path.abspath(args.outdir)}")
+    print(f"block_sparse_bf16_gen_inputs: H={H} D={D} B=1 bf16 density={DENSITY} -> {os.path.abspath(args.outdir)}")
     for S in args.seqlens:
         dump_qkv(args.outdir, S)
         dump_do(args.outdir, S)

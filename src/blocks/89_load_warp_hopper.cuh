@@ -10,7 +10,7 @@
 // for back-pressure from the consumer.
 //
 // Composes #18 (tma_load), #29-#33 (mbarrier), #44 (elect_sync),
-// #67 (tma_load_stage), #69 (phase tracking).
+// #116 (tma_load_stage), #118 (phase tracking).
 //
 // Block functions:
 //

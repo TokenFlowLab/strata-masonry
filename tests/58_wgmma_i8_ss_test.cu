@@ -88,7 +88,7 @@ __global__ void wgmma_i8_m64n8k64_sp_allones_kernel(int32_t* __restrict__ out) {
     for (int i = 0; i < 4; i++) out[tid * 4 + i] = d[i];
 }
 
-// MED: m64n64k32 s8.s8 (production tile size).
+// m64n64k32 s8.s8 (production tile size).
 __global__ void wgmma_i8_m64n64k32_allones_kernel(int32_t* __restrict__ out) {
     constexpr int M = 64, N = 64, K = 32;
     __shared__ __align__(128) int8_t smem_A[M * K];
@@ -116,7 +116,7 @@ __global__ void wgmma_i8_m64n64k32_allones_kernel(int32_t* __restrict__ out) {
     for (int i = 0; i < 32; i++) out[tid * 32 + i] = d[i];
 }
 
-// MED: u8.u8, s8.u8, u8.s8 mixed-sign m64n8k32. With all-ones (treated as 1
+// u8.u8, s8.u8, u8.s8 mixed-sign m64n8k32. With all-ones (treated as 1
 // in both signed and unsigned), expected accumulator == K == 32.
 __global__ void wgmma_u8_m64n8k32_allones_kernel(int32_t* __restrict__ out) {
     constexpr int M = 64, N = 8, K = 32;
@@ -187,7 +187,7 @@ __global__ void wgmma_u8s8_m64n8k32_allones_kernel(int32_t* __restrict__ out) {
     for (int i = 0; i < 4; i++) out[tid * 4 + i] = d[i];
 }
 
-// MED: .satfinite -- intentionally drive to overflow to verify saturation.
+// .satfinite -- intentionally drive to overflow to verify saturation.
 // All A elements = 127 (s8 max), all B elements = 127. K=32 contributions of
 // 127*127 = 16129 each, sum = 32 * 16129 = 516128 -- still within int32 range,
 // so saturation does not kick in for K=32. Verify the modifier compiles and
@@ -281,7 +281,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: m64n64k32 s8 (production tile size) ---
+    // ---m64n64k32 s8 (production tile size) ---
     {
         const int NELT = 128 * 32;
         int32_t* d_out; CUDA_CHECK(cudaMalloc(&d_out, NELT * sizeof(int32_t)));
@@ -303,7 +303,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: u8.u8 mixed-sign m64n8k32 ---
+    // ---u8.u8 mixed-sign m64n8k32 ---
     {
         const int NELT = 128 * 4;
         int32_t* d_out; CUDA_CHECK(cudaMalloc(&d_out, NELT * sizeof(int32_t)));
@@ -324,7 +324,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: s8.u8 mixed-sign m64n8k32 ---
+    // ---s8.u8 mixed-sign m64n8k32 ---
     {
         const int NELT = 128 * 4;
         int32_t* d_out; CUDA_CHECK(cudaMalloc(&d_out, NELT * sizeof(int32_t)));
@@ -345,7 +345,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: u8.s8 mixed-sign m64n8k32 ---
+    // ---u8.s8 mixed-sign m64n8k32 ---
     {
         const int NELT = 128 * 4;
         int32_t* d_out; CUDA_CHECK(cudaMalloc(&d_out, NELT * sizeof(int32_t)));
@@ -366,7 +366,7 @@ int main() {
         cudaFree(d_out);
     }
 
-    // --- MED: .satfinite functional check ---
+    // ---.satfinite functional check ---
     // With small inputs that don't overflow, .satfinite must produce identical
     // values to the non-saturating instruction. With fillA=fillB=1, K=32, the
     // expected value is K = 32 (same as the basic test).

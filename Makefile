@@ -43,8 +43,8 @@ is_hopper_only_file = $(shell head -1 $(1) 2>/dev/null | grep -qE '^\#if defined
 HOPPER_ONLY_TEST_NAMES := $(strip $(foreach t,$(TEST_NAMES),$(if $(call is_hopper_only_file,tests/$(t).cu),$(t))))
 
 # A file is Blackwell-only if its TOP-LINE guard is `#if defined(PL_AGENTIC_SM100A)`
-# (and the file has no SM90A path). After unification, fully merged files have
-# no guard at line 1 and should NOT be filtered.
+# (and the file has no SM90A path). Files with no guard at line 1 are not
+# filtered.
 is_blackwell_only_file = $(shell head -1 $(1) 2>/dev/null | grep -qE '^\#if defined\(PL_AGENTIC_SM100A\)' && ! grep -qE '^\#if defined\(PL_AGENTIC_SM90A\)' $(1) 2>/dev/null && echo 1)
 BLACKWELL_ONLY_TEST_NAMES := $(strip $(foreach t,$(TEST_NAMES),$(if $(call is_blackwell_only_file,tests/$(t).cu),$(t))))
 
@@ -187,7 +187,7 @@ tests_sm90a: $(addprefix $(BUILDDIR)/,$(SM90A_TESTS))
 # kernel (kernel + driver + verify + bench + main). Output binary
 # build/kernel_<arch>_<name>.
 #
-# Per-arch glob; matches NATIVE_ARCH so an agent only builds their arch:
+# Per-arch glob; matches NATIVE_ARCH so only the native arch is built:
 #   make kernels                 -> all kernels for NATIVE_ARCH
 #   make kernel_<arch>_<name>    -> build + run one kernel
 #   make kernel_<arch>_<name>_build -> build only (sandbox-friendly)

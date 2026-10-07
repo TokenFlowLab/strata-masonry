@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 128_epi_smem_pingpong_test.cu -- swap alternates between two SMEM bases.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +21,7 @@
 #include "128_epi_smem_pingpong.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -41,7 +40,6 @@ __global__ void k(uint32_t* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   uint32_t* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 12));
   k<<<1, 1>>>(d);
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -55,7 +53,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: 128_epi_smem_pingpong -- double-buffered epilogue SMEM.
@@ -132,7 +130,6 @@ __global__ void kernel_pingpong(const __grid_constant__ CUtensorMap tmap_out,
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 

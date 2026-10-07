@@ -53,7 +53,7 @@
  *
  * Args (none beyond the CLC dispatch state):
  *   clc_full_bar, clc_empty_bar, clc_response
- *     [V41_CLC_STAGES=2] cluster-shared CLC mbars + 16-byte response
+ *     [CLC_STAGES=2] cluster-shared CLC mbars + 16-byte response
  *     slots. Same SMEM layout shared with sched_warp + load_warp_ntiles
  *     + mma_warp_ntiles + epi_warp_ntiles. Caller-owned init.
  *

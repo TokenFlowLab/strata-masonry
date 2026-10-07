@@ -1,8 +1,7 @@
 // ARCH: sm_90a
 // 20_tma_load_multicast_test.cu -- multicast TMA load to 2 CTAs.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -23,7 +22,7 @@
 #include "20_tma_load_multicast.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_100a
@@ -55,7 +54,6 @@ k_mcast(const __grid_constant__ CUtensorMap desc) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   std::vector<float> hIn(16 * 16, 1.f);
   float* dIn = nullptr; CUDA_CHECK(cudaMalloc(&dIn, 16 * 16 * 4));
   CUDA_CHECK(cudaMemcpy(dIn, hIn.data(), 16 * 16 * 4, cudaMemcpyHostToDevice));
@@ -71,7 +69,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Test: TMA 2D load with multicast -- compile + PTX verification
@@ -116,7 +114,6 @@ __global__ void tma_multicast_l2_kernel(const __grid_constant__ CUtensorMap tens
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     printf("20_tma_load_multicast: compiled successfully.\n");
     PASS();
     return 0;
@@ -124,7 +121,7 @@ static int run_theirs() {
 
 
 // =============================================================================
-// 2SM + multicast composition (Blackwell only) -- Phase 3 HIGH
+// 2SM + multicast composition (Blackwell only)
 // =============================================================================
 
 #if defined(PL_AGENTIC_SM100A) || defined(PL_AGENTIC_SM103A)

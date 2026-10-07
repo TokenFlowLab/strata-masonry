@@ -1,12 +1,11 @@
 #if defined(PL_AGENTIC_SM103A)
 // ARCH: sm_103a
-// 124_k_loop_3xfp4_test.cu -- 8-phase K-loop emitter test (composite 75).
+// 124_k_loop_3xfp4_test.cu -- 8-phase K-loop emitter test (composite 124).
 //
-// Composite 75 depends on shared primitives 11 (tcgen05_commit),
+// Composite 124 depends on shared primitives 11 (tcgen05_commit),
 // 13 (tcgen05_cp_4x256b), 15 (tcgen05_fence_before_thread_sync), and
-// 33 (mbarrier_wait_parity). When those headers are not yet
-// on disk (partial sm_100a tree), composite 75 self-disables via
-// __has_include and this test reports SKIP without failing. When deps
+// 33 (mbarrier_wait_parity). If those headers are missing, composite 124
+// self-disables via __has_include and this test reports SKIP without failing. When deps
 // are present, the test launches a kernel that emits the K-loop with
 // dont_run=0 (so no actual MMAs retire) and verifies the SASS contains
 // tcgen05.mma + tcgen05.cp + commit + fence + mbarrier.try_wait.parity
@@ -45,7 +44,7 @@ int main() {
     const char* name = "124_k_loop_3xfp4";
 
 #if !K_LOOP_3XFP4_DEPS_AVAILABLE
-    std::printf("[SKIP] %s -- shared primitives not yet on disk "
+    std::printf("[SKIP] %s -- shared primitives not available "
                 "(11_tcgen05_commit, 13_tcgen05_cp, 15_tcgen05_fence, "
                 "33_mbarrier_try_wait). The K=96 building blocks (file 6, 17) "
                 "are validated standalone.\n", name);

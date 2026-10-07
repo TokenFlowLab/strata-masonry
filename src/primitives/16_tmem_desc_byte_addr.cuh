@@ -21,9 +21,8 @@
 //
 // Issuer: any thread (this is a host-style helper that runs on device);
 // the caller passes the resulting descriptor to a tcgen05.{mma,cp}
-// instruction. The file name says "tmem" for naming-scheme symmetry with
-// related sm_103a work, but the descriptor itself is SMEM-side -- TMEM
-// addresses are 32-bit lane:col, not byte-addressed.
+// instruction. Despite the "tmem" file name, the descriptor is SMEM-side --
+// TMEM addresses are 32-bit lane:col, not byte-addressed.
 // PTX:    9.7.18.4.1 (descriptor format, bit 52 absolute mode)
 //
 #include <cstdint>

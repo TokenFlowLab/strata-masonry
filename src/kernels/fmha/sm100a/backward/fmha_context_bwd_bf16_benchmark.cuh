@@ -98,7 +98,7 @@ inline Inputs inputs(int batch, int heads, int seqlen, int dim, bool causal) {
   return result;
 }
 
-// Preserves the existing default-stream, L2-warm batch-mean measurement.
+// Default-stream, L2-warm batch-mean measurement.
 // The closure includes preprocess + main + dQ postprocess, including accumulator clear.
 template <class Launch>
 double measure(Launch&& launch, int warmup, int iterations) {

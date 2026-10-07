@@ -178,19 +178,19 @@ void softmax_warp_blackwell_1tile_1sm2sm_bf16_fmha(WpCtx& wpc,
     if constexpr (SPLIT_P) {
       tcgen05_st_32x32b_x32(p_tmem_addr, *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
       tcgen05_st_32x32b_x16(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[32]));
-      tcgen05_wait_st();   // RACE FIX f22fb2e: fence orders but does NOT complete the async STTM
+      tcgen05_wait_st();   // fence orders but does NOT complete the async STTM
       tcgen05_fence_before_thread_sync();
       if constexpr (USE_2CTA) mbarrier_arrive_cluster_default(mapa_shared_cluster_u32(smem_ptr_u32(&empty_bar_spo[m_tile]), 0));
       else mbarrier_arrive(smem_ptr_u32(&empty_bar_spo[m_tile]));
       tcgen05_st_32x32b_x16(p_tmem_addr + SPLIT_P_COL, *reinterpret_cast<uint32_t(*)[16]>(&p_regs[SPLIT_P_COL]));
-      tcgen05_wait_st();   // RACE FIX f22fb2e
+      tcgen05_wait_st();
       tcgen05_fence_before_thread_sync();
       if constexpr (USE_2CTA) mbarrier_arrive_cluster_default(mapa_shared_cluster_u32(smem_ptr_u32(&full_bar_p_last[m_tile]), 0));
       else mbarrier_arrive(smem_ptr_u32(&full_bar_p_last[m_tile]));
     } else {
       tcgen05_st_32x32b_x32(p_tmem_addr, *reinterpret_cast<uint32_t(*)[32]>(&p_regs[0]));
       tcgen05_st_32x32b_x32(p_tmem_addr + 32, *reinterpret_cast<uint32_t(*)[32]>(&p_regs[32]));
-      tcgen05_wait_st();   // RACE FIX f22fb2e
+      tcgen05_wait_st();
       tcgen05_fence_before_thread_sync();
       if constexpr (USE_2CTA) mbarrier_arrive_cluster_default(mapa_shared_cluster_u32(smem_ptr_u32(&empty_bar_spo[m_tile]), 0));
       else mbarrier_arrive(smem_ptr_u32(&empty_bar_spo[m_tile]));

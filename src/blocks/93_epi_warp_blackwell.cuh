@@ -8,7 +8,7 @@
 // The "epilogue warp" role: drains a TMEM-resident FP32 accumulator tile
 // through the cvt + stmatrix path into a 64-entry SMEM staging buffer,
 // laid out for a downstream TMA store. Wraps the alloc / wait / dealloc
-// envelope and uses #76 epi_subtile_blackwell_fp16 for the cvt + stmatrix
+// envelope and uses #125 epi_subtile_blackwell_fp16 for the cvt + stmatrix
 // kernel-side body.
 //
 // Parametric form: `epi_warp_blackwell(out)`. The kernel writes the SMEM
@@ -187,22 +187,8 @@ void epi_warp_blackwell_block(WpCtx& wpc,uint32_t* slot,
 //     the tail TMA stores' GMEM-commit latency is longer than next
 //     tile's TMEM->regs + cvt+STS path -- the overlap hides it.
 //
-// Measured on V0 inventory (TFLOPS, GpuTimer, 10w/100b, GB200 sm_100a):
-//
-//   shape       AlongN(true)  AlongN(false)  AlongM(true)  AlongM(false)
-//   und-gate    826.4         810.6          824.8         808.6
-//   und-qkv     2005.4        1979.8         1894.0        1878.2
-//   und-o       1912.5        1887.6         1449.5        1402.8
-//   gen-gate    537.8         525.2          537.7         524.6
-//   gen-qkv     2109.6        2086.5         1421.4        1396.4
-//   gen-o       2012.1        1985.9         1363.5        1342.1
-//
-// `true` wins by 1-2% across V0 because doubling the wait_group call
-// count (4 vs 2 per tile, EPI_SUB_COUNT=4 / EPI_NUM_BUFS=2) costs more
-// than the overlap saves on these K shapes. The `false` path stays
-// available -- expected to win when the per-tile drain dominates
-// (small K, deeper epilogue, larger EPI_SUB_COUNT/NUM_BUFS ratio,
-// activation-fused epilogues).
+// Default `true`: 2x the wait_group calls (EPI_SUB_COUNT=4 / EPI_NUM_BUFS=2) cost more than the
+// overlap saves on typical K; `false` wins when the per-tile drain dominates (small K, fused epilogues).
 template <int M_TILE_PER_CTA, int N_TILE_CLUSTER, int EPI_SUB_COLS, int EPI_NUM_BUFS,
           bool DRAIN_PER_TILE = true>
 __device__ inline
@@ -366,8 +352,8 @@ void epi_warp_blackwell_1tile_1sm2sm_bf16(WpCtx& wpc,
 // Raster-templated overload: caller picks (CLUSTER_SHAPE_M, CLUSTER_SHAPE_N,
 // ORDER) for the CLC decode. Defaults match the un-templated form
 // (1, 2, AlongN) so existing call sites are unchanged.
-// DRAIN_PER_TILE: see _1tile_ doc comment. Default `true` matches V0
-// best perf; `false` overlaps next tile's sub=0 with prior tile's tail
+// DRAIN_PER_TILE: see _1tile_ doc comment. Default `true` is faster on
+// typical shapes; `false` overlaps next tile's sub=0 with prior tile's tail
 // TMA stores (useful when the per-tile drain dominates).
 template <int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
@@ -830,7 +816,7 @@ void epi_warp_blackwell_1tile_1sm2sm_bf16_swiglu_chunked(WpCtx& wpc,
       const float g0 = __int_as_float(regs_gate[j]);
       const float u1 = __int_as_float(regs_up  [j + 1]);
       const float g1 = __int_as_float(regs_gate[j + 1]);
-      // Tanh-based SwiGLU via composite 108; same math as
+      // Tanh-based SwiGLU via composite 130; same math as
       // silu(gate)*up but avoids the __expf overflow-to-Inf path
       // that triggers a slow special-value handler in the SM.
       d_row_u32[j >> 1] = cvt_pack_f32_to_bf16x2(
@@ -993,8 +979,7 @@ void epi_warp_blackwell_ntiles_1sm_bf16(WpCtx& wpc,
  * SwiGLU-fused 2SM/1SM BF16 epilogue, M3 1-col interleaved variant.
  *
  * B layout: per N-tile, columns alternate up/gate. Pack convention is
- * up = even col, gate = odd col (matches trtllm-gen
- * `reorderRowsForGatedActGemm`). The MMA accumulator therefore arrives
+ * up = even col, gate = odd col. The MMA accumulator therefore arrives
  * in TMEM with the same interleave: TMEM col 2n = up[n],
  * col 2n+1 = gate[n] for n in [0, N_TILE_CLUSTER / 2).
  *

@@ -15,7 +15,7 @@
 //   - tcgen05.dealloc
 //
 // Composes file 6 (K=96 MMA), file 17 (circular SMEM desc), composite
-// 75 (K-loop), plus shared primitives 0 (alloc), 1 (dealloc),
+// 124 (K-loop), plus shared primitives 0 (alloc), 1 (dealloc),
 // 2 (relinquish), 38 (barrier_cluster).
 //
 // Block function:

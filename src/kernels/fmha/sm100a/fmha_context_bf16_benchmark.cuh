@@ -43,7 +43,7 @@ struct Options {
 inline Options options_from_env() {
   Options options;
   options.graph = env_count("GRAPH", 0, 0, 1) != 0;
-  // Preserve the old direct (3/20) and graph (5/20) defaults.
+  // Default warmup/iters: direct 3/20, graph 5/20.
   options.warmup_iterations = env_count("WARMUP", options.graph ? 5 : 3, 0);
   options.timed_iterations = env_count("ITERS", 20, 1);
   return options;
@@ -108,8 +108,8 @@ inline std::uint64_t attended_pairs(std::uint64_t sq, std::uint64_t sk, bool cau
   return m * (m + 1) / 2 + (sq > sk ? (sq - sk) * sk : 0);
 }
 
-// QK and PV multiply-adds only; excludes softmax and padding. Preserve the existing
-// result line consumed by benchmark scripts, and return useful TFLOPS.
+// QK and PV multiply-adds only; excludes softmax and padding. Prints the result line
+// and returns useful TFLOPS.
 inline double report(const char* label, long query_tokens, bool causal, int head_dim,
                      int query_heads, std::uint64_t pairs, double mean_ms) {
   if (!std::isfinite(mean_ms) || mean_ms <= 0.0) {

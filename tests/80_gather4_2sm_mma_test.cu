@@ -53,7 +53,7 @@
 
 constexpr int M_CLUSTER  = 256;
 constexpr int M_PER_PEER = M_CLUSTER / 2;   // 128
-constexpr int N          = 256;             // MMA atom N = K1's N_TILE_CLUSTER
+constexpr int N          = 256;             // MMA atom N
 constexpr int N_PER_PEER = N / 2;
 constexpr int K          = 64;
 constexpr int N_GATHER_CALLS = M_PER_PEER / 4;

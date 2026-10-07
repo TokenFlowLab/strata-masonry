@@ -8,7 +8,7 @@
 // bit 3), and (2) a kernel allocating TMEM, issuing the MMA with zero
 // descriptors, committing, waiting, and deallocating completes without
 // hang. End-to-end INT8 GEMM correctness lives at the block level
-// (#90, #100). The TS forms added in e40352e are separately exercised by
+// (#90, #100). The TS forms are separately exercised by
 // _extended_coverage_probe_test.
 //
 // PTX sniff: `cuobjdump --dump-ptx build/7_tcgen05_mma_i8_test |
@@ -103,7 +103,7 @@ __global__ void k_i8_sparse() {
   if (threadIdx.x == 0) tcgen05_dealloc<1>(tmem_base, 128);
 }
 
-// Non-sparse TS smoke (round 4c probe-graduation): exercises
+// Non-sparse TS smoke: exercises
 // tcgen05_mma_i8_ts_1sm directly. Same scaffold as k_i8.
 __global__ void k_i8_ts() {
   __shared__ __align__(16)   uint32_t tmem_base_slot;

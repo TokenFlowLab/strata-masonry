@@ -60,7 +60,7 @@
 //   clc_fetch_next_tile <CLUSTER_SHAPE_M, CLUSTER_SHAPE_N, ORDER>(...)
 // where ORDER is `ClcRasterOrder::AlongN` or `ClcRasterOrder::AlongM`.
 //
-// K0's typical instantiation is `<1, 2, AlongN>` (cluster_dims=(2,1,1),
+// The dense GEMM's typical instantiation is `<1, 2, AlongN>` (cluster_dims=(2,1,1),
 // peers split N, raster x->N) for `tiles_m > tiles_n` shapes; flip to
 // `<2, 1, AlongM>` when `tiles_n > tiles_m` per the CUTLASS heuristic.
 //
@@ -98,13 +98,8 @@
 //   - Caller is responsible for setting up the grid AND the CSM/CSN
 //     args consistently with ORDER. The helper does not validate.
 //
-// Earlier versions of this file had an AlongM branch that did a
-// "swap cluster-index parts, preserve remainders" formula intended to
-// achieve AlongM without reshaping the grid. That formula is correct
-// only for square clusters (CSM == CSN); for asymmetric (1x2 / 2x1)
-// clusters it produces "peers in same cluster see different n_tiles,"
-// which violates the cta_group::2 MMA contract. Replaced by the
-// symmetric two-line formula above.
+// AlongM without reshaping the grid (swapping cluster-index parts) is wrong for
+// non-square clusters: peers would see different n_tiles, breaking cta_group::2.
 //
 // Proxy fence: try_cancel.async writes via the async proxy; reading the
 // response via the generic proxy (ld.shared) requires
@@ -230,7 +225,7 @@ ClcTileInfo clc_fetch_next_tile(
       __cvta_generic_to_shared(&clc_response[clc_cons_stage * 4]));
   ClcTileInfo t = clc_parse_response<
       CLUSTER_SHAPE_M, CLUSTER_SHAPE_N, ORDER>(resp_addr);
-  // Gotcha (sm_100a, seen 2026-09-15): the release below can take effect before the
+  // Gotcha (sm_100a): the release below can take effect before the
   // ld.shared of the response has completed; the sched then refills the slot and this
   // warp reads the NEXT response (item skew between warps -> hang). Complete the read first,
   // same fence as CUTLASS's sm100_tile_scheduler::fetch_next_work.
@@ -251,7 +246,7 @@ ClcTileInfo clc_fetch_next_tile(
 }
 
 // Advance the (stage, phase) consumer state for a CLC ring of STAGES slots.
-// Default STAGES=2 matches K0/skeleton's CLC ring depth.
+// Default STAGES=2 matches the dense GEMM / block 100 CLC ring depth.
 template <int STAGES = 2>
 __device__ __forceinline__
 void clc_fetch_next_tile_advance(int& clc_cons_stage,

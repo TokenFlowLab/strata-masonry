@@ -28,11 +28,8 @@ void fence_proxy_async() {
   asm volatile("fence.proxy.async;\n" ::: "memory");
 }
 
-// NOTE: this is the shared::cta-scoped fence (matches the name). The body was
-// previously the UNSCOPED `fence.proxy.async;`, which ptxas lowers to a
-// MEMBAR.ALL.CTA + MEMBAR.ALL.GPU pair (~263 membar stall samples/kernel vs
-// FA4's 0). The generic->async ordering we need (st.shared sO before TMA store)
-// only requires shared::cta scope, which lowers to a cheap FENCE.VIEW.ASYNC.S.
+// shared::cta-scoped (matches the name): lowers to a cheap FENCE.VIEW.ASYNC.S, while the unscoped
+// form adds MEMBAR.ALL.CTA + MEMBAR.ALL.GPU; st.shared -> TMA store only needs shared::cta.
 __device__ __forceinline__
 void fence_proxy_async_shared() {
   asm volatile("fence.proxy.async.shared::cta;\n" ::: "memory");

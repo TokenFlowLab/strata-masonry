@@ -36,7 +36,7 @@ k_tma2sm(const __grid_constant__ CUtensorMap desc, float* out) {
 }
 
 // 2SM TMA load with .L2::cache_hint -- same shape as k_tma2sm but
-// exercises the cache-policy operand. Round 4h.
+// exercises the cache-policy operand.
 __global__ void __cluster_dims__(2, 1, 1)
 k_tma2sm_l2hint(const __grid_constant__ CUtensorMap desc, float* out,
                 uint64_t cache_policy) {
@@ -82,7 +82,7 @@ int main() {
   k_tma2sm<<<2, 256>>>(desc, dOut);
   CUDA_CHECK(cudaDeviceSynchronize());
 
-  // Round 4h: l2hint variant with a fresh cache policy. The policy
+  // l2hint variant with a fresh cache policy. The policy
   // descriptor is opaque (built via inline-PTX `createpolicy.fractional`
   // in production code); for a smoke test we use 0 = default eviction.
   CUDA_CHECK(cudaMemset(dOut, 0, 16 * 16 * 4));

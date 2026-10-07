@@ -10,16 +10,6 @@
 //       support); the fallback is provided so kernels that conditionally
 //       use these wrappers behind their own arch guards still compile.
 //
-// TODO: runtime-test on sm_103a hardware once available. Both the sm_103a
-//       (real asm) and sm_100a (fallback) paths have been verified to
-//       compile cleanly, and the sm_103a PTX output is correct, but no
-//       runtime smoke test has been executed on real sm_103a silicon yet.
-//       When sm_103a hardware becomes accessible, add a test under
-//       tests/66_tcgen05_ld_red_test.cu following the pattern of
-//       tests/9_tcgen05_ld_test.cu (write known values to TMEM, run each
-//       wrapper, verify the loaded regs and the reduced redval against
-//       hand-computed expected values).
-//
 // PTX 9.7.18.8.3 (.ld.red form).
 //
 // Coverage matrix (Y = wrapper provided; - = combination not defined by PTX).

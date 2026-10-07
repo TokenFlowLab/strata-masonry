@@ -2,8 +2,7 @@
 // 33_mbarrier_try_wait_test.cu -- try_wait.parity covered by #29/30/31;
 // here we verify that a single try_wait returns 0 before arrival and 1 after.
 //
-// Combined test: both ours' and theirs' coverage is exercised
-// in a single binary (each side's main() became run_ours/run_theirs).
+// Two test sets in one binary: run_ours() and run_theirs().
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +21,7 @@
 #include "33_mbarrier_try_wait.cuh"
 
 // =============================================================================
-// ours (originally guarded by PL_AGENTIC_SM100A || PL_AGENTIC_SM103A)
+// ours
 // =============================================================================
 
 // ARCH: sm_90a
@@ -46,7 +45,6 @@ __global__ void k_try(int* out) {
 }
 
 static int run_ours() {
-  /* (orig args dropped) */
   int* d = nullptr; CUDA_CHECK(cudaMalloc(&d, 8));
   CUDA_CHECK(cudaMemset(d, 0, 8));
   k_try<<<1, 32>>>(d);
@@ -60,7 +58,7 @@ static int run_ours() {
 }
 
 // =============================================================================
-// theirs (originally guarded by PL_AGENTIC_SM90A)
+// theirs
 // =============================================================================
 
 // Runtime test: mbarrier.try_wait.parity vs mbarrier.wait (blocking) semantics
@@ -147,7 +145,6 @@ __global__ void polling_kernel(uint32_t* out, int delay_iters) {
 }
 
 static int run_theirs() {
-  /* (orig args dropped) */
     CUDA_CHECK(cudaFree(0));
     bool all_pass = true;
 
@@ -202,7 +199,7 @@ static int run_theirs() {
 
 
 // =============================================================================
-// Cluster-scope try_wait.parity (Phase 3 HIGH)
+// Cluster-scope try_wait.parity
 // =============================================================================
 
 // Cluster of 2 CTAs. Each CTA initializes its own mbar with arrival
@@ -277,7 +274,7 @@ static int run_cluster_try_wait() {
 }
 
 // =============================================================================
-// MED: try_wait.parity with suspendNanos (round 4i, free-agent item)
+// try_wait.parity with suspendNanos
 // =============================================================================
 //
 // Strategy: single-CTA mbar with arrival count 1. Thread 0 polls via the

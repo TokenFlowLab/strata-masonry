@@ -48,7 +48,7 @@ double measure(cudaStream_t stream, Launch&& launch,
   return static_cast<double>(elapsed_ms) / timed_iterations;
 }
 
-// Preserve legacy sweep output; single-case mode opts into the common KB format.
+// Sweep mode keeps its own format; single-case mode prints the standard one-line format.
 inline double report(int M, int N, int K, double mean_ms, bool static_schedule,
                      int block_m, int block_n, int num_clusters, int total_tiles,
                      bool timed = true, bool standard_output = false) {

@@ -5,18 +5,17 @@
 //
 // ARCH: sm_100a (Blackwell-only; filtered out of sm_90a builds)
 //
-// Why this file still exists after Phase 4:
-//   The Phase 4 probe-graduation rounds drained every cta_group::1
-//   wrapper from this file -- their runtime tests now live in their
-//   owning <N>_<name>_test.cu. The cta_group::2 wrappers below were NOT graduated
-//   to per-wrapper smoke tests because cta_group::2 dispatch is not
+// Why only cta_group::2 wrappers:
+//   cta_group::1 wrappers have runtime tests in their owning
+//   <N>_<name>_test.cu. The cta_group::2 wrappers below have no
+//   per-wrapper smoke tests because cta_group::2 dispatch is not
 //   testable in isolation: it requires a 2-CTA cluster + paired
 //   tcgen05_alloc<2> + cluster.barrier sync + valid swizzle-aligned
 //   SMEM matrix descriptors. Those prerequisites only
 //   exist at the block level -- runtime validation lives in
 //     - tests/88_load_warp_blackwell_test.cu  (cluster + 2SM TMA + alloc/dealloc)
 //     - tests/100_pipeline_blackwell_test.cu  (full pipeline + 2SM MMA + commit_multicast)
-//   This file's role is now narrowly: keep ptxas-acceptance coverage
+//   This file's role is narrowly: keep ptxas-acceptance coverage
 //   for the 2SM wrappers' inline-asm strings so syntax errors show up
 //   at build time, not at first block-level test run.
 //
