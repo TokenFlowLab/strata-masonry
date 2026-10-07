@@ -90,6 +90,11 @@ python3 src/kernels/gemm/sm100a/dense_gemm_bf16_cpu_verifier.py verify \
 
 The other kernels follow the same pattern; see their `*_problem_size.md`.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately as described in
+[SECURITY.md](SECURITY.md).
+
 ## License
 
 BSD 3-Clause. See [LICENSE](LICENSE). Third-party code and its licenses are listed in

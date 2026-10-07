@@ -1,0 +1,4 @@
+# CPU verifiers
+numpy
+# Block-sparse and sliding-window input generators only
+torch
