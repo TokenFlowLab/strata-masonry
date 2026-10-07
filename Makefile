@@ -19,11 +19,9 @@
 SHELL := /bin/bash
 NVCC  ?= nvcc
 
-CUTLASS_DIR := ../../dynamic-kernel-generator/cutlass
 CXXFLAGS := -O3 -std=c++17 --expt-relaxed-constexpr --extended-lambda -DNDEBUG -lineinfo \
-            -I src/primitives -I src/composites -I src/blocks -I tests \
-            -I $(CUTLASS_DIR)/include -I $(CUTLASS_DIR)/tools/util/include
-LDFLAGS  := -lcuda -lcublas
+            -I src/primitives -I src/composites -I src/blocks -I tests
+LDFLAGS  := -lcuda
 EXTRA_CXXFLAGS ?=
 EXTRA_LDFLAGS  ?=
 CXXFLAGS += $(EXTRA_CXXFLAGS)
