@@ -92,8 +92,8 @@ The other kernels follow the same pattern; see their `*_problem_size.md`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately as described in
-[SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report
+security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
