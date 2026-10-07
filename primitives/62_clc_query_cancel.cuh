@@ -7,7 +7,6 @@
 // Decodes a try_cancel (#61) response. The response is a 128-bit opaque
 // handle; callers pass it as 4 uint32_t register operands (loaded from
 // the 16-byte SMEM slot with ld.shared.v4.b32).
-// Source: knowledge/instructions/clc/clusterlaunchcontrol.md
 // PTX:    9.7.15.19 (clusterlaunchcontrol.query_cancel)
 //
 #include <cstdint>

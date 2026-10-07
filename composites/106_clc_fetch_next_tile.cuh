@@ -62,8 +62,7 @@
 //
 // K0's typical instantiation is `<1, 2, AlongN>` (cluster_dims=(2,1,1),
 // peers split N, raster x->N) for `tiles_m > tiles_n` shapes; flip to
-// `<2, 1, AlongM>` when `tiles_n > tiles_m` per the CUTLASS heuristic
-// in sched_warp.md sec 5.5.
+// `<2, 1, AlongM>` when `tiles_n > tiles_m` per the CUTLASS heuristic.
 //
 // What the templated helpers DO support:
 //   - Any (CLUSTER_SHAPE_M, CLUSTER_SHAPE_N) values, including non-pow2.
@@ -112,8 +111,6 @@
 // `fence.proxy.async.shared::cta` first. Handled inside
 // clc_parse_response.
 //
-// Source: knowledge/instructions/clc/clusterlaunchcontrol.md sec 8,
-//         knowledge/instructions/tmem/tcgen05_tmem.md sec 8.3.
 // PTX:    9.7.15.18 (clusterlaunchcontrol.try_cancel.async),
 //         9.7.15.16.16 (mbarrier.arrive scope/sem defaults),
 //         9.7.15.16.19 (mbarrier.try_wait.parity).
@@ -140,7 +137,7 @@ struct ClcTileInfo {
   bool valid;
 };
 
-// Raster order for the cluster-grid sweep (`knowledge/building_blocks/sched_warp.md` sec 5.5):
+// Raster order for the cluster-grid sweep:
 // the hardware dispatches and cancels CTAs x-fastest, so ORDER decides which logical axis
 // consecutive tokens sweep by choosing which grid axis carries it (the convention contract above).
 //   AlongN: ctaid.x carries N (grid (CSN * n_clusters, m_clusters)), consecutive tokens sweep N.
@@ -153,8 +150,6 @@ enum class ClcRasterOrder { AlongN, AlongM };
 // 2SM (cluster): both peers get arrive_expect_tx via mapa::cluster routing
 // (lane 0 -> peer 0, lane 1 -> peer 1).
 //
-// Source: knowledge/building_blocks/sched_warp.md sec 7.3 (CLC PTX form
-//         + expect_tx arrive form, 2SM column).
 __device__ __forceinline__
 void clc_arrive_expect_tx_cluster(uint32_t clc_full_local_addr, uint32_t tx_bytes) {
   const int lane_idx = threadIdx.x & 31;
@@ -169,8 +164,6 @@ void clc_arrive_expect_tx_cluster(uint32_t clc_full_local_addr, uint32_t tx_byte
 // 1SM (non-cluster): plain .shared arrive_expect_tx on the local mbar.
 // Single elected lane issues -- no cluster routing needed.
 //
-// Source: knowledge/building_blocks/sched_warp.md sec 7.3 (CLC PTX form
-//         + expect_tx arrive form, 1SM column).
 __device__ __forceinline__
 void clc_arrive_expect_tx_cta(uint32_t clc_full_local_addr, uint32_t tx_bytes) {
   if ((threadIdx.x & 31) == 0) {
@@ -193,8 +186,6 @@ void clc_consumer_release(uint32_t clc_empty_local_addr) {
 // Non-cluster (1SM) variant: arrive on the local mbar via plain .shared
 // scope.
 //
-// Source: knowledge/building_blocks/sched_warp.md sec 7.3 (consumer
-//         release on clc_empty, 1SM column).
 __device__ __forceinline__
 void clc_consumer_release_cta(uint32_t clc_empty_local_addr) {
   mbarrier_arrive_nostate(clc_empty_local_addr);

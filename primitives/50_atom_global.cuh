@@ -9,7 +9,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/atomic/atom.md
 // PTX:    9.7.15.5 (atom.global)
 //
 #include <cstdint>

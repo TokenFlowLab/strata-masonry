@@ -24,7 +24,6 @@
 //
 //
 // Issuer: one thread per CTA (cta_group::1) or per CTA-pair (cta_group::2).
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.10.10.1 (mma syntax), 9.7.18.4.2 Table 53 (idesc)
 //
 #include <cstdint>

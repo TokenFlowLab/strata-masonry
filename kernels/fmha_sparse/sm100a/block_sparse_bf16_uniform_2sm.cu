@@ -10,7 +10,6 @@
 // NUM_KV_STAGES = 6, vs the base's half-wasted 3 x 32 KB -- journey item #0, +88 on dense), the
 // walked SmemDescPair descriptors, the FA4 register ladder, the 5D-Q / 3D-V_T single-TMA loads,
 // EX2_FREQ=10 + EX2_START_FRG=1, and the inlined corr/epi/sched warps (0 blocks/* calls).
-// See journey_uniform_2sm_to_2sm_inline.md for the item list.
 //
 // VSA features ported on:
 //   - Gather: K/V tiles come from a top-k list, not a seqlen walk (union_id() in the load warp).

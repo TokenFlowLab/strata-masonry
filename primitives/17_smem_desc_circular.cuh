@@ -13,12 +13,10 @@
 // (b0, b1) -> (b1, b2) -> (b2, b0) -> (b0, b1) ...
 //
 // Issues no PTX. Composes file 16's `build_smem_desc_byte_addr` over the
-// 3-buffer rotation. Reference: knowledge/building_blocks/smem_layout.md
-// section 9.
+// 3-buffer rotation.
 //
 // Issuer: any thread; output is fed into a later tcgen05.{mma,cp} via the
 // k_loop_3xfp4 composite (file 75).
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.4.1 (descriptor format), 9.7.18.3.1.2 (absolute address mode for K=48B)
 //
 #include "16_tmem_desc_byte_addr.cuh"

@@ -1,5 +1,5 @@
-// block_sparse_bwd_bf16_blk64_2pv.cu -- long-sequence fork of
-// fmha_context_bf16_uniform_vsa_bwd_blk64_2pq.cu: pass 2 is an
+// block_sparse_bwd_bf16_blk64_2pv.cu -- long-sequence fork of the
+// two-pass blk64 kernel: pass 2 is an
 // occupancy-preserving ws-TS ITEM-PAIRED kernel. The original 2pv paired
 // two ranks per step and double-buffered D, requiring 224KB SMEM / 384
 // TMEM columns and therefore one CTA/SM. This revision uses one rank per
@@ -2186,7 +2186,7 @@ static void cpu_vsa_bwd_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
   }
 }
 
-// Deterministic fill in [-1, 1) (same hash as the fv bench).
+// Deterministic fill in [-1, 1) (same hash as the forward bench).
 static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -2195,7 +2195,7 @@ static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   }
 }
 
-// N(0,1) Gaussian fill via Box-Muller (VSA_GAUSS; same hash as the fv bench).
+// N(0,1) Gaussian fill via Box-Muller (VSA_GAUSS; same hash as the forward bench).
 static void fillg(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -2240,7 +2240,7 @@ static void run(const Sh& sh) {
   }
 
   // q2k index: LOAD_NPY head-independent [num_blocks, topk] broadcast, or topk DISTINCT
-  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the fv bench).
+  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the forward bench).
   std::vector<int> hq2k_idx((size_t)num_global_q_blocks * max_kv, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
   const bool sort_sel = getenv("VSA_SORT_SEL") != nullptr;
@@ -2656,7 +2656,7 @@ int main(int argc, char** argv) {
          "non-persistent 16-warp kernel, mma.ws quads; pre+main+post (block=%d)\n"
          "=====================================\n", BLOCK);
 
-  // shapes: {B, H, num_blocks, topk, hd, label} (as the fv forward bench).
+  // shapes: {B, H, num_blocks, topk, hd, label} (as the forward bench).
   Sh shapes[] = {
     {1,  4,  8,  4, 128, "small"},
     {1, 16, 32,  8, 128, "fastvideo"},

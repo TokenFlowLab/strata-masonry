@@ -19,7 +19,6 @@
 //   [61:64) swizzle mode (0=none, 2=128B, 4=64B, 6=32B)
 //
 // Alignment: start_addr / lbo / sbo must all be 16-byte aligned.
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.4.1 (Blackwell SMEM descriptor)
 //
 #include <cstdint>

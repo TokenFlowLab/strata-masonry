@@ -20,7 +20,7 @@
 //       wrapper, verify the loaded regs and the reduced redval against
 //       hand-computed expected values).
 //
-// PTX 9.7.18.8.3 (.ld.red form). Source: knowledge/instructions/tmem/tcgen05_tmem.md
+// PTX 9.7.18.8.3 (.ld.red form).
 //
 // Coverage matrix (Y = wrapper provided; - = combination not defined by PTX).
 // .x1 is NOT a legal .num for the reduction form (ptxas rejects it); the

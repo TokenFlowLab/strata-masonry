@@ -23,7 +23,6 @@
 // Issuer: 1 CTA, 128 threads. tcgen05.alloc / .relinquish issued by the
 // first warp; commit + dealloc by lane 0 of warp 0.
 
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.18.10.10.1 (tcgen05.mma), 9.7.18.12.1 (commit), 9.7.15.3 (barrier.cluster)
 //
 #include <cstdint>
@@ -156,10 +155,8 @@ void mma_warp_blackwell_block(WpCtx& wpc,uint32_t* slot,
  *     to {stage=0, parity=0}). Body advances full_ph once per K-block.
  *     Persists across tiles in caller's scope.
  *
- * Source: knowledge/building_blocks/mma_warp.md sec 7.3 (1SM vs 2SM),
- *         sec 7.4 (descriptor-stride trick: stage0 + STAGE_DELTA avoids
- *                  LDL/STL near tcgen05.alloc),
- *         sec 7.5 (TMEM banking: bank stride = N_TILE_CLUSTER, <= 256).
+ * Notes:  descriptor-stride trick (stage0 + STAGE_DELTA avoids LDL/STL
+ *         near tcgen05.alloc); TMEM bank stride = N_TILE_CLUSTER, <= 256.
  * PTX:    9.7.18.10.10.1 (tcgen05.mma.cta_group::2.kind::f16),
  *         9.7.18.12.1   (tcgen05.commit.cta_group::2.multicast::cluster),
  *         9.7.15.16.19  (mbarrier.try_wait.parity).
@@ -253,9 +250,6 @@ void mma_warp_blackwell_1tile_2sm_bf16(WpCtx& wpc,
  * Caller responsibility: produce_state_advance() after this call (state
  * is observable by the caller).
  *
- * Source: knowledge/building_blocks/mma_warp.md sec 7.3 (1SM vs 2SM),
- *         sec 7.4 (descriptor-stride trick),
- *         sec 7.5 (TMEM banking).
  * PTX:    9.7.18.10.10.1 (tcgen05.mma.cta_group::1.kind::f16),
  *         9.7.18.12.1   (tcgen05.commit.cta_group::1).
  * ============================================================================ */
@@ -327,10 +321,10 @@ void mma_warp_blackwell_1tile_1sm_bf16(WpCtx& wpc,
 // bytes; SMEM-desc start_address is in 16-byte units in low 14 bits).
 // Tail at function exit (after the persistent loop):
 //   1. Leader-CTA acc_empty drain (2 stages) -- proves both CTAs' EPI
-//      done with TMEM (mma_warp.md sec 6.1).
+//      done with TMEM.
 //   2. tmem_dealloc_bar handshake -- symmetric arrive-on-peer +
 //      wait-on-local; leader's arrive carries the "TMEM done" proof
-//      to the follower (mma_warp.md sec 6.2).
+//      to the follower.
 //   3. tcgen05.relinquish_alloc_permit + tcgen05.dealloc<2>.
 template <int NUM_STAGES, int M_TILE_CLUSTER, int N_TILE_CLUSTER, int K_TILE,
           uint64_t A_STAGE_DELTA, uint64_t B_STAGE_DELTA,
@@ -383,7 +377,7 @@ void mma_warp_blackwell_ntiles_2sm_bf16(WpCtx& wpc,
     if (!next.valid) break;
   }
 
-  // --- Tail teardown (mma_warp.md sec 6) -------------------------------
+  // --- Tail teardown ---------------------------------------------------
   // 1. Leader CTA: drain both acc_empty stages so EPI is proven done
   //    with TMEM on both CTAs. prod_state was advanced inside every
   //    iter, so it points at the next-to-acquire stage.
@@ -519,9 +513,6 @@ void mma_warp_blackwell_ntiles_2sm_bf16_peer1relay(WpCtx& wpc,
  * K-loop delegates to `_1tile_1sm_bf16`.
  *
  * Tail: drain acc_empty + tcgen05.relinquish<1> + tcgen05.dealloc<1>.
- *
- * Source: knowledge/building_blocks/mma_warp.md sec 7.3 (1SM vs 2SM),
- *         sec 7.5 (TMEM banking).
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_CLUSTER, int N_TILE_CLUSTER, int K_TILE,
           uint64_t A_STAGE_DELTA, uint64_t B_STAGE_DELTA,

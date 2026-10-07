@@ -16,7 +16,6 @@
 // Issuer: 1 CTA, 32 threads. clc_fetch_next_tile is collective on warp 0;
 // the rest of the CTA spins on the same mbarrier through the helper.
 //
-// Source: knowledge/building_blocks/sched_warp.md
 // PTX:    9.7.15.18 (clusterlaunchcontrol.try_cancel + .query_cancel)
 
 #pragma once
@@ -101,10 +100,6 @@ void sched_warp_clc_block(WpCtx& wpc,uint32_t* slot,
  *     `cluster_rank == 0` is the leader CTA; only leader's sched warp
  *     issues CLC. `lane` is intra-warp lane index.
  *
- * Source: knowledge/building_blocks/sched_warp.md sec 7.3
- *                  (CLC PTX form + expect_tx arrive form by cluster size),
- *         knowledge/instructions/clc/clusterlaunchcontrol.md sec 8,
- *         knowledge/instructions/tmem/tcgen05_tmem.md sec 8.3.
  * PTX:    9.7.15.18 (clusterlaunchcontrol.try_cancel.async.multicast::
  *                    cluster::all),
  *         9.7.15.16.16 (mbarrier.arrive.expect_tx + scope/sem defaults),
@@ -198,7 +193,7 @@ void sched_warp_clc_blackwell_ntiles_2sm_bf16(WpCtx& wpc,
   // when the main loop broke, ensuring CLC HW state is clean at kernel
   // exit. Without this, the next launch's tcgen05.alloc may trip the
   // alloc-state-machine guardrail observed in multi-launch sanitizer
-  // tests (see kernels/gemm/sm100a/tcgen05_local_memory_trap.md).
+  // tests.
   if (cluster_rank == 0) {
     for (int s = 0; s < CLC_STAGES; ++s) {
       wp_begin(wpc, WP_SCHED_WAIT_CLC);  // tail drain: clc_empty

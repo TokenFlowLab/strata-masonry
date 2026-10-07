@@ -21,7 +21,6 @@
 //   .sync.aligned -- all 128 warpgroup threads must reach in lockstep
 //
 // Issuer: warp-group (128 threads).
-// Source: knowledge/instructions/mma/wgmma.md
 // PTX:    9.7.17.7 (wgmma.fence / .commit_group / .wait_group)
 //
 #include <cstdint>

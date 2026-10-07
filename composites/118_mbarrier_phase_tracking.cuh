@@ -19,7 +19,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    9.7.15.16.19 (mbarrier.try_wait.parity)
 //
 #include <cstdint>

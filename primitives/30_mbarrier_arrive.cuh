@@ -10,7 +10,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/barrier/mbarrier.md
 // PTX:    9.7.15.16.16 (mbarrier.arrive)
 //
 #include <cstdint>

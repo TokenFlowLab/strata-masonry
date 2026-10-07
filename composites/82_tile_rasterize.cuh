@@ -34,7 +34,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/sched_warp.md
 // PTX:    n/a (tile-coord math; cite knowledge for col / row / swizzled raster)
 //
 #include <cstdint>

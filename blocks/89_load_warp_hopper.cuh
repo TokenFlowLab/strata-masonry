@@ -12,7 +12,7 @@
 // Composes #18 (tma_load), #29-#33 (mbarrier), #44 (elect_sync),
 // #67 (tma_load_stage), #69 (phase tracking).
 //
-// Block functions (per code/PLAN.md "Block function signature contract"):
+// Block functions:
 //
 //   template <int NUM_STAGES, int TILE_BYTES, int TILE_K>
 //   __device__ __forceinline__ void
@@ -39,7 +39,6 @@
 // Caller-gated warp-collective consumer body. Waits each stage's full
 // mbarrier, copies SMEM -> GMEM (lane-stride 32), arrives empty.
 //
-// Source: knowledge/building_blocks/load_warp.md
 // PTX:    9.7.10.28.5.3 (TMA), 9.7.15.16.14 (expect_tx)
 
 #include <cstdint>

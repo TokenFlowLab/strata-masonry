@@ -21,7 +21,6 @@
 // the TMA load + arrive.expect_tx; the other CTA's TMA-side participation is
 // implicit via the cta_group::2 modifier.
 
-// Source: knowledge/building_blocks/load_warp.md
 // PTX:    9.7.10.28.5.3 (TMA cta_group::2), 9.7.15.16.14 (expect_tx)
 //
 #include <cstdint>
@@ -221,8 +220,7 @@ void load_warp_blackwell_block(WpCtx& wpc,const CUtensorMap& tma_A,
  *                 indexing.
  *     Caller owns the layout. Buffers must be 128-byte aligned for
  *     B128 swizzle compatibility with the consumer's tcgen05.mma
- *     SMEM descriptors (PTX 9.7.18.4.1 +
- *     knowledge/building_blocks/smem_layout.md). The body issues TMA
+ *     SMEM descriptors (PTX 9.7.18.4.1). The body issues TMA
  *     writes to these regions; a downstream MMA warp reads them via
  *     SMEM descriptors that must point to the same base addresses.
  *
@@ -290,7 +288,6 @@ void load_warp_blackwell_block(WpCtx& wpc,const CUtensorMap& tma_A,
  *     if (warp == load_warp)
  *         load_warp_blackwell_1tile_2sm_bf16<...>(wpc, ...);
  *
- * Source: knowledge/building_blocks/load_warp.md
  * PTX:    9.7.10.28.5.3 (TMA cta_group::2),
  *         9.7.15.16.14 (mbarrier.arrive.expect_tx),
  *         9.7.15.16.19 (mbarrier.try_wait.parity).
@@ -455,10 +452,6 @@ void load_warp_blackwell_1tile_1sm_bf16(WpCtx& wpc,
 // weights. `m_tile_remap` (runtime, nullptr = identity): see block 93's
 // `m_tile_remap` doc for the idx-space details. N / E / expert_cumul_smem
 // are only read when GROUPED_GEMM=true; pass defaults for K0-style use.
-//
-// See: knowledge/kernels/grouped_gemm.md for the padded-A /
-// flat-B layout convention, the expert-decode contract, and the 2-phase
-// tail handler that the m_tile_remap supports.
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
           int LOAD_REG_BUDGET = 40,
@@ -583,8 +576,6 @@ void load_warp_blackwell_ntiles_2sm_bf16(WpCtx& wpc,
  * Pairs with `epi_warp_blackwell_ntiles_2sm_bf16_swiglu_chunked` --
  * the TMEM accumulator layout is identical ([up | gate] split at
  * N_TILE_CLUSTER/2), so the EPI consumer is the same.
- *
- * Source: knowledge/kernels/grouped_gemm.md sec 6.5 (M1 row).
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
@@ -720,7 +711,6 @@ void load_warp_blackwell_ntiles_2sm_bf16_swiglu_m1(WpCtx& wpc,
  * the peer reads packed indices `[m_tile * MTC + peer * MTC_PER_CTA,
  * + MTC_PER_CTA)`.
  *
- * Source: knowledge/kernels/grouped_gemm.md §7 (gather fusion).
  * PTX:    9.7.10.28.5.3 (TMA tile::gather4; no cta_group::2 form),
  *         9.7.15.16.14 (mbarrier.arrive.expect_tx),
  *         9.7.15.16.19 (mbarrier.try_wait.parity).
@@ -908,8 +898,7 @@ void load_warp_blackwell_ntiles_2sm_bf16_gather4(WpCtx& wpc,
  * (ordered before any issue by __syncwarp); each gather4 + the B 2SM load
  * accumulate tx-bytes into the same per-peer full_bar.
  *
- * Source: K13_gather_fusion_design.md sec 4A (parallel issue) + sec 12
- *         (2SM peer1-relay). Requires N_GATHER_PER_KBLOCK <= 32.
+ * Parallel issue + 2SM peer1-relay. Requires N_GATHER_PER_KBLOCK <= 32.
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
@@ -1083,9 +1072,6 @@ void load_warp_blackwell_ntiles_2sm_bf16_gather4_parallel(WpCtx& wpc,
  * For 1SM, M_TILE_CLUSTER == M_TILE_PER_CTA and N_TILE_CLUSTER ==
  * N_TILE_PER_CTA (no peer split). They remain separate template params
  * for API symmetry with the 2sm version.
- *
- * Source: knowledge/building_blocks/load_warp.md sec 7.3 (1SM vs 2SM),
- *         sec 7.2 (grouped GEMM via m_tile_remap + expert decode).
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
@@ -1189,7 +1175,6 @@ void load_warp_blackwell_ntiles_1sm_bf16(WpCtx& wpc,
  * perm[packed_idx] = source row in A (-1 for pad slots, handled by
  * the descriptor's OOB-fill).
  *
- * Source: knowledge/kernels/grouped_gemm.md §7 (gather fusion).
  * PTX:    9.7.10.28.5.3 (TMA tile::gather4).
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
@@ -1343,8 +1328,6 @@ void load_warp_blackwell_ntiles_1sm_bf16_gather4(WpCtx& wpc,
  * any issue (ordered by __syncwarp); all gather4 + B signal the same
  * full_bar[s], tx-bytes accumulate. Requires N_GATHER_PER_KBLOCK <= 32 so
  * each lane owns at most one gather group.
- *
- * Source: K13_gather_fusion_design.md sec 4A.
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
@@ -1533,7 +1516,6 @@ void load_warp_blackwell_ntiles_1sm_bf16_gather4_parallel(WpCtx& wpc,
  * Caller passes the RAW A base pointer (mA, M_unpermuted x K row-major),
  * NOT a TMA descriptor, for the A side.
  *
- * Source: K13_gather_fusion_design.md sec 4C.
  * PTX: 9.7.10.28.3.1 (cp.async.cg), 9.7.10.28.3.x (cp.async.mbarrier.arrive).
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
@@ -1706,7 +1688,6 @@ void load_warp_blackwell_ntiles_1sm_bf16_cpasync(WpCtx& wpc,
  * warp -- a deferred-by-1 wait + cross-CTA arrive -- which stalled the load on
  * its own cp.async every K-block; removed in favor of the MMA-warp relay.)
  *
- * Source: K13_gather_fusion_design.md sec 4D + sec 12.
  * PTX: 9.7.10.28.5.3 (cta_group::2 TMA), 9.7.15.16.16 (mbarrier.arrive
  *      .shared::cluster), 9.7.10.28.3.* (cp.async).
  * ============================================================================ */
@@ -1883,11 +1864,6 @@ void load_warp_blackwell_ntiles_2sm_bf16_cpasync(WpCtx& wpc,
  *
  * Throttle handshake driven by ALL 32 lanes (matches sched_warp_clc's
  * 32-arrive throttle_full consumer side).
- *
- * Source: knowledge/kernels/grouped_gemm.md sec 4.5.2
- *         (phase-2 v2 -- CLC scheduler + tail_m_offset / tail_expert_id
- *          lookup-table decode).
- *         knowledge/building_blocks/load_warp.md sec 7.3 (1SM vs 2SM).
  * ============================================================================ */
 template <int NUM_STAGES, int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int LOAD_REG_BUDGET = 40,

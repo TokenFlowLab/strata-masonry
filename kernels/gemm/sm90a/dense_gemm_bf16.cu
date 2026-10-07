@@ -2,9 +2,9 @@
 //
 // ARCH: sm_90a
 //
-// V0 SKELETON SCOPE (Path B per kernels/PLAN.md workflow):
+// V0 SKELETON SCOPE:
 //   - Goal: end-to-end correct kernel + verify + bench at all 6 shapes
-//     (UND/GEN x {gate, qkv, o-proj}) + roofline-grounded knowledge page.
+//     (UND/GEN x {gate, qkv, o-proj}).
 //   - Performance bar (>= 85% Hopper SOL or roofline-ceiling) is NOT the
 //     skeleton commit's bar; tune-1+ commits drive perf to the bar.
 //   - Verify: host-side reference at a 64x64x64 smoke shape (small,
@@ -47,9 +47,8 @@
 //   primitives directly (TMA tensormap, mbarrier, wgmma, smem desc).
 //   Tune commits may add wrappers (e.g. wgmma_bf16_ss_m64n128k16 for
 //   the wider tile that production GEMM kernels use); when added,
-//   they go to primitives/ first per kernels/PLAN.md rule 4.
+//   they go to primitives/ first.
 //
-// Source: knowledge/kernels/dense_gemm_bf16_sm90a.md
 // PTX:    9.7.17.5 (wgmma.mma_async.bf16), 9.7.15.16 (mbarrier),
 //         9.7.10.28.5.3 (cp.async.bulk.tensor)
 
@@ -321,7 +320,7 @@ k7_dense_gemm_bf16_v0(
         asm volatile("bar.sync 1, 128;\n" ::: "memory");
 
         // Generic-proxy -> async-proxy fence required between stmatrix
-        // (generic) and TMA store (async), per epi_warp.md gotchas.
+        // (generic) and TMA store (async).
         fence_proxy_async_shared_cta();
 
         // One elected thread issues the TMA store of the 64x64 BF16 tile.
@@ -347,7 +346,7 @@ struct Shape {
 const Shape SHAPES[] = {
     // smoke shape -- single output tile, host-reference verifies correctness
     {"smoke",       64,   64,    64},
-    // production shapes from kernels/problem_size.md
+    // production shapes
     {"und-gate", 14046, 2048,   128},
     {"und-qkv",  14046, 2048,  5120},
     {"und-o",    14046, 4096,  2048},

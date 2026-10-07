@@ -14,7 +14,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/smem/stmatrix.md
 // PTX:    9.7.16.5.16 (stmatrix)
 //
 #include <cstdint>

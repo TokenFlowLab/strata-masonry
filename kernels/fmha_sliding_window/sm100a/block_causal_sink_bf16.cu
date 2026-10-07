@@ -8,7 +8,7 @@
 //      out-of-spec: block_end runs past seqlen and the reference itself is self-inconsistent there.
 //   4. SMALL sink: (sink_size - num_frame_per_block) * frame_seqlen <= K_TILE, i.e. the sink reaches
 //      at most one K_TILE past a block end. Larger sinks leave an interior sink tile above a row's
-//      block_end unmasked (need_mask omits the block_end cap -- see masking.md "need_mask gap").
+//      block_end unmasked (need_mask omits the block_end cap).
 //   (3) and (4) are checked host-side in run(); all tested/real Wan configs satisfy both.
 //
 // K-LOOP TILE COVERAGE (decode_workitem). The K-loop runs k_tiles = window_tiles + sink_tiles steps,
@@ -338,7 +338,7 @@ __device__ __forceinline__ void mask_s_row_bcs(float* scores, int k_tile_offset,
 //                      (runtime HQ/HK). Body identical; picked by run<MHA>() from main()'s env knob.
 //   LPT              : heaviest-q-tile-first ordering to balance the block-causal load.
 //   RESCALE_THRESHOLD: sticky-max threshold in log2 units (default 8); if the max grew <= this, keep
-//                      it -> alpha==1.0 -> corr skips O-rescale. See docs/ATTENTION_LEARNINGS.md Q10.
+//                      it -> alpha==1.0 -> corr skips O-rescale.
 //   HAS_SINK_ROPE_DELTA: sink cols use rotated q_sink (relativistic RoPE delta) -- mid-kernel q_sink
 //                      reload + disjoint window/sink mask split. Off => plain bcs.
 template <int S_LD_COLS = 32, bool FULL_NAMED_BAR = false, bool EX2_EMU = false, bool SPLIT_P = true,
@@ -1481,7 +1481,7 @@ template <bool MHA = false, bool LPT = false, bool HAS_SINK_ROPE_DELTA = false>
 static double run(const Shape& shape, bool verify) {
   const int  num_samples     = (int)shape.seqlens.size();
   const int  seqlen = shape.seqlens[0];
-  // Supported BCS regime (see the file-header ASSUMES + masking.md). Outside it decode/masking are
+  // Supported BCS regime (see the file-header ASSUMES). Outside it decode/masking are
   // out-of-spec, so fail loud rather than return silently-wrong results.
   if (shape.bcs) {
     if (shape.num_frames % shape.num_frame_per_block != 0) {
@@ -1870,7 +1870,7 @@ int main() {
   // MHA=1 -> HK==HQ (gqa_group=1); default GQA -> HK=4 (gqa_group=HQ/4=8 at HQ=32).
   const bool mha0 = getenv("MHA") ? (atoi(getenv("MHA")) != 0) : false;
   // BCS=1 -> block-causal + attention sink + sliding window. Params are FRAME counts;
-  // derived to tokens here (see task.md Notation). LOCAL_ATTN_SIZE=-1 => no window
+  // derived to tokens here. LOCAL_ATTN_SIZE=-1 => no window
   // (full block-causal); the sink/window are enforced by the device+CPU bcs mask.
   const bool bcs  = getenv("BCS") ? (atoi(getenv("BCS")) != 0) : false;
   const bool rope = getenv("ROPE_DELTA") ? (atoi(getenv("ROPE_DELTA")) != 0) : false;  // relativistic sink RoPE

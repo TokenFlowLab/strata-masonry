@@ -10,7 +10,6 @@
 // cp.async.bulk.tensor (TMA store). NOT required after TMA load +
 // mbarrier.try_wait (implicit fence).
 //
-// Source: knowledge/instructions/fence/fence.md
 // PTX:    9.7.15.4 (fence.proxy.async)
 //
 

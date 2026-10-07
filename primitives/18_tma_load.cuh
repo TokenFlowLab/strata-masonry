@@ -22,7 +22,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_load.md
 // PTX:    9.7.10.28.5.3 (cp.async.bulk.tensor)
 //
 #include <cuda.h>

@@ -14,10 +14,9 @@
 //     state, returning the rescale factor that the correction warp would
 //     apply to the running PV accumulator
 //
-// Source: knowledge/building_blocks/softmax_warp.md
 // PTX:    9.7.18.8 (TMEM ld/st), 9.7.10.24 (cvt), 9.7.15.13 (redux.sync)
 //
-// Block function (per code/PLAN.md "Block function signature contract"):
+// Block function:
 //
 //   __device__ __forceinline__ void
 //   softmax_warp_block(const float* scores, int K, SoftmaxState& state);

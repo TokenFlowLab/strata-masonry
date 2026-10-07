@@ -10,7 +10,6 @@
 // 2SM kernels). The aligned variants require every participating thread to
 // use the .aligned form.
 //
-// Source: knowledge/instructions/barrier/barrier_cluster.md
 // PTX:    9.7.15.3 (barrier.cluster)
 //
 

@@ -7,7 +7,6 @@
 // Some MMA patterns can issue two tcgen05.mma against the same stage's SMEM
 // before the empty mbarrier needs to fire. This composite unrolls the inner
 // wait/issue pair by two to amortize the mbarrier spin overhead.
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.18.10.10.1 (tcgen05.mma), 9.7.18.6.2 (pipelined pairs)
 //
 #include <cstdint>

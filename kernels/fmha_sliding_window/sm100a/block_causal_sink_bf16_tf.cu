@@ -9,7 +9,7 @@
 //   appends it as a q_sink segment (all 3 branches, incl. the straddle scan); the load warp reloads
 //   q_sink before that segment (MMA hands sQ back); mask_s_row_tf splits at sink_tokens (sink tiles keep
 //   c < sink_tokens with q_sink; non-sink tiles keep c >= max(window_start, sink_tokens) with plain q).
-//   Verified vs the triton reference tf+rope (bench/verify_modes.py tf_rope mode).
+//   Verified vs the triton reference in tf+rope mode.
 //
 
 // ASSUMES (baked in -- the kernel is NOT correct otherwise):
@@ -18,7 +18,7 @@
 //   2. ALL seqlens EQUAL (no varlen) -- one `seqlen` for every sample, so K_TILES is uniform.
 //   3. num_frames (per half) % num_frame_per_block == 0 -- NO partial last block (out-of-spec otherwise).
 //   4. SMALL sink: (sink_size - num_frame_per_block) * frame_seqlen <= K_TILE (sink reaches at most one
-//      K_TILE past a block end; larger sinks leave an interior sink tile unmasked -- masking.md gap).
+//      K_TILE past a block end; larger sinks leave an interior sink tile unmasked).
 //   (3) and (4) are checked host-side in run().
 //
 // K-LOOP TILE COVERAGE (decode_workitem + step_to_tile3). Teacher forcing runs over a two-half
@@ -407,7 +407,7 @@ __device__ __forceinline__ void mask_s_row_tf(float* scores, int k_offset,
 //   RESCALE_THRESHOLD: sticky-max threshold in log2 units (default 8). If the running max grew by
 //                      <= this, keep the old max -> alpha EXACTLY 1.0 -> corr skips the O-rescale.
 //                      Higher skips more but risks fp32 overflow of exp2 (2^threshold); 8 is very
-//                      safe. See docs/ATTENTION_LEARNINGS.md Q10.
+//                      safe.
 template <int S_LD_COLS = 32, bool FULL_NAMED_BAR = false, bool EX2_EMU = false, bool SPLIT_P = true,
           bool SOFTMAX_THROTTLE = false, bool USE_CLC = true, bool Q_RASTER = true, bool MHA = false,
           bool LPT = false, int RESCALE_THRESHOLD = 8, bool HAS_SINK_ROPE_DELTA = false>
@@ -1624,7 +1624,7 @@ template <bool MHA = false, bool LPT = false, bool HAS_SINK_ROPE_DELTA = false>
 static double run(const Shape& shape, bool verify) {
   const int  num_samples     = (int)shape.seqlens.size();
   const int  seqlen = shape.seqlens[0];
-  // Supported BCS regime (see the file-header ASSUMES + masking.md); num_frames is per half here.
+  // Supported BCS regime (see the file-header ASSUMES); num_frames is per half here.
   // Outside it decode/masking are out-of-spec, so fail loud rather than return silently-wrong results.
   if (shape.bcs) {
     if (shape.num_frames % shape.num_frame_per_block != 0) {
@@ -2016,7 +2016,7 @@ int main() {
   const bool mha0 = getenv("MHA") ? (atoi(getenv("MHA")) != 0) : false;
 
   // BCS=1 -> block-causal + attention sink + sliding window. Params are FRAME counts;
-  // derived to tokens here (see task.md Notation). LOCAL_ATTN_SIZE=-1 => no window
+  // derived to tokens here. LOCAL_ATTN_SIZE=-1 => no window
   // (full block-causal); the sink/window are enforced by the device+CPU bcs mask.
   const bool bcs  = getenv("BCS") ? (atoi(getenv("BCS")) != 0) : false;
   const bool tf   = getenv("TF")  ? (atoi(getenv("TF"))  != 0) : false;   // teacher forcing [clean|noisy]

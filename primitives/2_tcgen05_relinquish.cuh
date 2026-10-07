@@ -10,7 +10,6 @@
 //
 // No operands. After this call the CTA MUST NOT issue tcgen05.alloc again.
 //
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.7.1 (tcgen05.alloc / dealloc / relinquish_alloc_permit)
 //
 template <int CTA_GROUP>

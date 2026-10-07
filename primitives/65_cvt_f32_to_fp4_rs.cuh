@@ -18,7 +18,6 @@
 //   Caller supplies the entropy (e.g. via curand) per thread, per call.
 //
 // Issuer: any thread; per-thread instruction.
-// Source: knowledge/instructions/convert/cvt.md
 // PTX:    9.7.10.24 (cvt.rs: f32 -> e2m1 FP4)
 //
 #include <cstdint>

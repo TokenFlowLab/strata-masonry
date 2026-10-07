@@ -64,12 +64,12 @@
 //   mbarrier arrives at kernel exit are harmless and are NOT drained. The blk128 2SM kernel instead
 //   used a 13-warp bar_arrive<9>/bar_sync<9> protocol plus closing primes and closed-form tail
 //   drains, which DEADLOCKED intermittently (a closing prime racing the MMA's epilogue waits) --
-//   fixed in both kernels; see fmha_vsa_log.md.
+//   fixed in both kernels.
 //
 // Barrier contract, budgets (softmax inc<176> x8 + corr dec<88> x4 + singles dec<72> x4), TMEM
 // layout (S[i] at i*128, O[i] at 256 + i*128, 512 cols) and the EX2_EMU hybrid exp2 are as in
 // fmha_context_bf16_uniform_2sm.cu -- see its header. The blocks/98 P-publish wait_st race fix
-// (f22fb2e / 5e333e0) is inherited: every P tcgen05.st is drained with tcgen05_wait_st() BEFORE the
+// is inherited: every P tcgen05.st is drained with tcgen05_wait_st() BEFORE the
 // cross-CTA empty_bar_spo / full_bar_p_last arrive.
 //
 // PERF NOTE: blk512 removes the structural objection to 2SM that blk256 had (there, per CTA, the
@@ -77,7 +77,6 @@
 // Here one gather feeds 512 query rows and the K/V requests really do halve (ncu-confirmed) -- but
 // that saving is free, not decisive (see the header). The win came from the _inline lineage rebase.
 // This kernel is the fastest VSA kernel at 8K and 131K and within ~3% of 1CTA blk256 elsewhere.
-// See fmha_vsa_log.md for the full matrix.
 
 #include <cuda.h>
 #include <cuda_runtime.h>

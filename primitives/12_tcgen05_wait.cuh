@@ -11,7 +11,6 @@
 // Typical use: issue tcgen05.ld, then tcgen05.wait::ld before consuming the
 // register outputs.
 //
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.8.5 (tcgen05.wait)
 //
 __device__ __forceinline__ void tcgen05_wait_ld() {

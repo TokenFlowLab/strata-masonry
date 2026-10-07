@@ -17,7 +17,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_store.md
 // PTX:    9.7.10.28.6.1 (cp.async.bulk.commit_group), 9.7.10.28.6.2 (cp.async.bulk.wait_group)
 //
 #include <cuda.h>

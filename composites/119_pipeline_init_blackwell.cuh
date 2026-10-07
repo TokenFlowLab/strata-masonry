@@ -2,8 +2,7 @@
 //
 // ARCH: sm_100a
 //
-// Initializes the FULL warp-specialized Blackwell pipeline barrier suite
-// per `knowledge/building_blocks/pipeline.md` sec 2:
+// Initializes the FULL warp-specialized Blackwell pipeline barrier suite:
 //
 //   full[NUM_STAGES]            mainloop: load -> MMA
 //   empty[NUM_STAGES]           mainloop: MMA -> load
@@ -20,10 +19,9 @@
 // throttle_full / throttle_empty if your kernel doesn't use them (e.g. a
 // load+MMA-only smoke test that skips CLC + throttle).
 //
-// Caller-owned arrive_counts -- pipeline.md sec 2 calls out the canonical
-// values (1 / 1 / 1 / 256 / 1 / 10 / 32 / 32) but they're per-design.
+// Caller-owned arrive_counts -- the canonical values are
+// (1 / 1 / 1 / 256 / 1 / 10 / 32 / 32) but they're per-design.
 //
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    9.7.15.16.12 (mbarrier.init), 9.7.15.4 (fence.mbarrier_init.release.cluster)
 //
 #pragma once
@@ -34,8 +32,7 @@
 #include "../primitives/35_fence_mbarrier_init.cuh"
 #include "../primitives/38_barrier_cluster.cuh"
 
-// Full Blackwell pipeline mbarrier suite. Pointer arrays follow
-// `pipeline.md` sec 2 exactly. Optional pointers may be nullptr.
+// Full Blackwell pipeline mbarrier suite. Optional pointers may be nullptr.
 struct BlackwellPipelineBars {
   uint64_t* full;            // [NUM_STAGES]
   uint64_t* empty;           // [NUM_STAGES]
@@ -50,10 +47,8 @@ struct BlackwellPipelineBars {
 // Per-mbarrier arrive_counts for `pipeline_init_blackwell`. CTA_GROUP
 // template param scales CTA-scaled counts (acc_empty, clc_empty) by the
 // cluster size: 2SM = 2 CTAs (default), 1SM = 1 CTA. Other defaults
-// match the canonical K0 / pipeline.md numbers; override per-kernel.
-//
-// Source: knowledge/building_blocks/pipeline.md sec 4.1 (per-mbar
-//         arrival counts; CTA-scaled counts shift by cluster size).
+// match the canonical K0 numbers; override per-kernel. CTA-scaled
+// arrival counts shift by cluster size.
 template <int CTA_GROUP = 2>
 struct BlackwellPipelineArriveCounts {
   uint32_t full           = 1;                // load warp's elected lane (+expect_tx)

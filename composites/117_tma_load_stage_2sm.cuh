@@ -6,7 +6,6 @@
 //
 // Same shape as #67 but issues the 2SM variant of TMA load. The mbar is
 // steered to one CTA of the pair via the peer-bit mask (0xFEFFFFFF).
-// Source: knowledge/building_blocks/load_warp.md
 // PTX:    9.7.10.28.5.3 (cta_group::2), 9.7.15.16.14 (expect_tx + peer-bit mask)
 //
 #include <cstdint>

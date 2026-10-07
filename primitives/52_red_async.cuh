@@ -12,7 +12,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/atomic/atom.md
 // PTX:    9.7.15.7 (red.async.cluster)
 //
 #include <cstdint>

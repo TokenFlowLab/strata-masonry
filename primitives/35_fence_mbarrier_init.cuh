@@ -7,7 +7,6 @@
 // references the barrier (arrives from peer CTAs, multicast TMA completion).
 // Only the .cluster scope is defined by the ISA; there is no .cta variant.
 //
-// Source: knowledge/instructions/fence/fence.md
 // PTX:    9.7.15.4 (fence.mbarrier_init.release.cluster)
 //
 

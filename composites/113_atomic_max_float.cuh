@@ -18,7 +18,6 @@
 //
 // NaN is not handled: its encoding sorts above +inf, so a NaN input poisons the reduction.
 //
-// Source: knowledge/instructions/atom/atomic_float.md
 // PTX:    9.7.15.15 (atom.shared.max.u32)
 //
 

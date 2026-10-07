@@ -19,9 +19,6 @@
 // budget so heavier MMA/epi consumers can `setmaxnreg_inc` from the
 // CTA pool).
 
-// Source: knowledge/building_blocks/idle_warp.md (primary).
-//         knowledge/building_blocks/sched_warp.md (dispatch peer).
-//         knowledge/instructions/tmem/tcgen05_tmem.md sec 8.3.
 // PTX:    9.7.15.16.16 (mbarrier.arrive on cluster-shared mbar),
 //         9.7.21.5     (setmaxnreg.dec.sync.aligned).
 //

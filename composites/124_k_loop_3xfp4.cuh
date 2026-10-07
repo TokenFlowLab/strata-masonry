@@ -7,7 +7,7 @@
 // One K-tile holds 768 FP4 elements -> 8 MMA phases (768 / 96). The
 // loop interleaves UTCCP (tcgen05.cp SMEM -> TMEM) of scale factors on
 // even phases with MMA issues on every phase so the copy hides behind
-// the next MMA. See knowledge/building_blocks/mma_warp.md section 7.6.
+// the next MMA.
 //
 //   even phases (0, 2, 4, 6) : tcgen05.cp SF_A + SF_B -> TMEM, then MMA
 //   odd phases  (1, 3, 5, 7) : MMA only
@@ -24,7 +24,6 @@
 // Issuer: a single MMA-warp thread per CTA (cta_group::1) or per CTA-pair
 // (cta_group::2). Caller supplies pre-built SMEM descriptors via file 17
 // for both AB and scale-factor sides plus the K=96 idesc from file 6.
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.18.10.10.1 (block_scale K=96), 9.7.18.10.7.2.4 (block32 K=96 SF A), 9.7.18.10.7.3.4 (block32 K=96 SF B), 9.7.18.4.1 (absolute desc)
 //
 #include "../primitives/_common.cuh"

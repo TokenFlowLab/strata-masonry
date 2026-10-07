@@ -14,7 +14,6 @@
 //
 // Per-thread instruction. Cheap (one PTX op); standard pattern is to
 // build once in the kernel prologue and pass through to the load warp.
-// Source: knowledge/instructions/copy/createpolicy.md
 // PTX:    9.7.10.21 (createpolicy)
 
 #pragma once

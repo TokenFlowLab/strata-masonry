@@ -16,7 +16,6 @@
 //   barrier_count must match the number of consumers per producer
 //
 // Issuer: one thread per CTA (broadcast to all via syncthreads).
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    9.7.15.16.12 (mbarrier.init), 9.7.15.4 (fence.mbarrier_init)
 //
 #include <cstdint>

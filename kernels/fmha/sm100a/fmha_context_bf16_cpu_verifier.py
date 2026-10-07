@@ -63,7 +63,7 @@ for _direction, _sq, _sk in (("q-short", 256, 384), ("q-long", 384, 256)):
                 [_sq] * 2, 8, _hk, _mask == "causal", [_sk] * 2,
             )
 
-# Existing verify_matrix.sh cases. Preserve executed HK=4 and intended HK=2 separately.
+# Correctness-matrix cases. Executed HK=4 and intended HK=2 are kept separately.
 for _label, _b, _s, _hq, _hk in (
     ("mha-1024", 2, 1024, 16, 16), ("mha-968rag", 2, 968, 16, 16),
     ("mha-256min", 1, 256, 2, 2), ("mha-384odd", 1, 384, 2, 2),
@@ -243,7 +243,7 @@ def verify(case_name, actual_path, samples=64, mode=2, atol=0.05, rtol=0.10,
         nonfinite += int(np.count_nonzero(~finite))
         max_error = max(max_error, float(np.max(error[finite], initial=0.0)))
     return {
-        "schema": "kernelbridge.cpu-verifier-result/v0",
+        "schema": "cpu-verifier-result/v0",
         "family": "fmha/sm100a", "case": case_name,
         "passed": mismatches == 0, "mode": verification_mode,
         "samples": checked, "checked_elements": checked, "total_elements": expected_elements,

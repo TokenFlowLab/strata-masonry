@@ -82,7 +82,7 @@ def verify(case_name, actual_path, samples, mode, atol, rtol, seed):
     error = np.abs(observed - reference)
     mismatch = ~np.isfinite(observed) | ((error > atol) & (error > rtol * np.abs(reference)))
     return {
-        "schema": "kernelbridge.cpu-verifier-result/v0",
+        "schema": "cpu-verifier-result/v0",
         "family": "gemm/sm100a",
         "case": case_name,
         "passed": not bool(np.any(mismatch)),

@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/convert/cvt.md
 // PTX:    9.7.10.24 (cvt: f32 -> e4m3 / e5m2)
 //
 #include <cstdint>

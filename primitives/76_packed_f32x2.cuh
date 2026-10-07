@@ -13,7 +13,7 @@
 
 #pragma once
 
-// Source: PTX_ISA.md 9.7.3 (PTX ISA 9.4 sec 9.7.3.3-9.7.3.6: add/sub/mul/fma)
+// Source: PTX ISA 9.4 sec 9.7.3.3-9.7.3.6 (add/sub/mul/fma)
 // PTX:    add/sub/mul/fma.f32x2  [PTX 8.6+, sm_100+]
 //
 #include <cstdint>

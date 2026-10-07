@@ -1,4 +1,4 @@
-# books/code Makefile -- builds and runs primitives/composites/blocks tests.
+# Makefile -- builds and runs primitives/composites/blocks tests and kernels.
 #
 # Usage:
 #   make <N>_test             -- build and run one test (e.g. make 0_tcgen05_alloc_test)
@@ -183,9 +183,9 @@ tests_sm90a: $(addprefix $(BUILDDIR)/,$(SM90A_TESTS))
 	  [ $$failed -eq 0 ]
 
 # ============================================================================
-# kernels/ -- V0 deliverable kernels per Phase 5(c).
+# kernels/ -- end-to-end kernel programs.
 #
-# Layout: code/kernels/sm{100a,103a,90a}/<name>.cu, one end-to-end .cu per
+# Layout: kernels/<family>/<arch>/<name>.cu, one end-to-end .cu per
 # kernel (kernel + driver + verify + bench + main). Output binary
 # build/kernel_<arch>_<name>.
 #

@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/barrier/mbarrier.md
 // PTX:    9.7.15.16.19 (mbarrier.test_wait / try_wait)
 //
 #include <cstdint>

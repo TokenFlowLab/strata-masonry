@@ -3,7 +3,7 @@
 // 100_pipeline_blackwell_test.cu -- exercises blocks/100_pipeline_blackwell.cuh.
 //
 // Smoke-launches the canonical Blackwell pipeline skeleton kernel:
-// 8 warps per CTA, 2-CTA cluster, full mbarrier suite per pipeline.md sec 2,
+// 8 warps per CTA, 2-CTA cluster, full mbarrier suite,
 // CLC scheduler delivering N tiles. The kernel has no real bodies (no MMA,
 // no TMA loads, no EPI work) -- success criterion is "kernel completes
 // without hanging across N tiles + cluster sync + tcgen05 alloc/dealloc."

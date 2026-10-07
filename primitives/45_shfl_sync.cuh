@@ -11,7 +11,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/warp/shfl_sync.md
 // PTX:    9.7.10.6 (shfl.sync)
 //
 #include <cstdint>

@@ -15,7 +15,6 @@
 //   successive allocs within the same CTA must be non-increasing in n_cols
 //
 // Issuer: one warp per CTA (or one warp per peer-CTA pair for cta_group::2).
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.7.1 (tcgen05.alloc)
 //
 #include <cstdint>

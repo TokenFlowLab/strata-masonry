@@ -15,7 +15,6 @@
 //   pair with ldmatrix.x4 (A) + ldmatrix.x2.trans (B) for SMEM inputs
 //
 // Issuer: warp (32 threads).
-// Source: knowledge/instructions/mma/mma_sync.md
 // PTX:    9.7.16.5.14 (mma.sync, f16->f32 m16n8k16), 9.7.16.6 (mma.sp)
 //
 #include <cstdint>

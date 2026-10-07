@@ -16,7 +16,6 @@
 //   swizzle mode: 0=none, 1=128B, 2=64B, 3=32B (different encoding from sm_100a)
 //
 // Issuer: per-thread (compile-time constexpr or runtime).
-// Source: knowledge/instructions/mma/wgmma.md
 // PTX:    9.7.17.5.1.2.2 (Hopper Matrix Descriptor Format)
 //
 #include <cstdint>

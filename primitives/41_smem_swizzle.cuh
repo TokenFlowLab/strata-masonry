@@ -21,7 +21,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/smem_layout.md
 // PTX:    9.7.18.4.1 (Blackwell descriptor swizzle modes), 9.7.17.5.1.2.2 (Hopper Matrix Descriptor Format)
 //
 #include <cstdint>

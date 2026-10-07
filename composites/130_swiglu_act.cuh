@@ -22,8 +22,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/math/tanh.md (sec 6-8)
-//
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 

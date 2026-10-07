@@ -12,7 +12,7 @@
 // Composes #29-#33 (mbarrier), #43 (smem_desc_hopper), #53 (wgmma_f16_ss),
 // #59 (wgmma_fence_commit_wait), #69 (mbarrier_phase_tracking).
 //
-// Block function (per code/PLAN.md "Block function signature contract"):
+// Block function:
 //
 //   template <int NUM_STAGES, int TILE_A_BYTES, int TILE_B_BYTES>
 //   __device__ __forceinline__ void
@@ -29,7 +29,6 @@
 //
 // Caller-collective on the 128-thread warpgroup (warp 0..3).
 //
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.17.5 (wgmma.mma_async), 9.7.17.7 (fence/commit/wait)
 
 #include <cstdint>

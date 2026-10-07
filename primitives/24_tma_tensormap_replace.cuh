@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_load.md
 // PTX:    9.7.10.29 (tensormap.replace)
 //
 #include <cuda.h>

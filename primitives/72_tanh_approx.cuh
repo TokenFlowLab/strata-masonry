@@ -24,7 +24,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/math/tanh.md
 // PTX:    9.7.3.22  (tanh.approx.f32)
 //         9.7.4.9   (tanh.approx.{f16, f16x2, bf16, bf16x2})
 //

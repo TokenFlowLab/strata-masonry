@@ -19,7 +19,6 @@
 // produces 2 * num_consumer_threads_per_cta total arrives on peer
 // 0's bar, with arrive_count set accordingly.
 //
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md sec 8.2
 // PTX:    9.7.15.16 (mbarrier), 9.7.18.12.1 (tcgen05.commit), 9.7.18.5
 //         (Issue Granularity)
 

@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/softmax_warp.md
 // PTX:    9.7.18.8 (TMEM ld/st), 9.7.10.24 (cvt), 9.7.15.13 (redux.sync for max/sum)
 //
 #include <cstdint>

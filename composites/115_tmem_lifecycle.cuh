@@ -7,7 +7,6 @@
 // Full TMEM lifecycle in one call: allocate a column range, relinquish the
 // alloc permit (so other CTAs can start), run `body`, cluster-sync the pair
 // (for cta_group::2), dealloc.
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    9.7.18.7.1 (alloc / dealloc), 9.7.15.3 (barrier.cluster)
 //
 #include <cstdint>

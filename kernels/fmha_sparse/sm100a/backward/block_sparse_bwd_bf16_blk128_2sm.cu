@@ -1,6 +1,6 @@
 // block_sparse_bwd_bf16_blk128_2sm.cu -- two-CTA (cta_group::2, 2-SM cluster) form of
 // blk128: VSA block-sparse BACKWARD, bf16, sm_100a, 128-token blocks, KV-stationary, FA4-form
-// (flash_bwd_sm100.py @ 0251105, 2cta, hdim128; divergence ledger in FA4_ALIGNMENT.md).
+// (flash_bwd_sm100.py @ 0251105, 2cta, hdim128).
 //
 // A cluster pair owns one kv128 block and walks its q-list, one q128 block per step; CTA rank r
 // holds kv rows [64r, +64) of the block and q rows [64r, +64) of every visited q block. Per step
@@ -19,7 +19,7 @@
 //   3. Layout B. A cta_group::2 atom folds a [64 x 128] per-CTA accumulator into 128 lanes x 64
 //      columns: lane l holds row l & 63, columns [64 * (l >> 6), +64). A TS operand in TMEM
 //      follows the same fold: lanes 0-63 feed the n < 64 half of D, lanes 64-127 the n >= 64
-//      half, each lane holding all k of an atom (microbench/mma/layoutb_2sm_probe.cu).
+//      half, each lane holding all k of an atom.
 //   4. dS^T exchange. dQ = dS @ K contracts over all 128 kv rows: a softmax warp writes its own
 //      q-half piece into sDST and the peer's into sXCHG, which one thread bulk-copies (8 KB) into
 //      the peer's sDST, arming its dsx_full; the relay forwards that to the leader's dsx_leader.
@@ -1654,7 +1654,7 @@ static void cpu_vsa_bwd_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
   }
 }
 
-// Deterministic fill in [-1, 1) (same hash as the fv bench).
+// Deterministic fill in [-1, 1) (same hash as the forward bench).
 static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -1714,7 +1714,7 @@ static void run(const Sh& sh) {
   }
 
   // q2k index: LOAD_NPY head-independent [num_blocks, topk] broadcast, or topk DISTINCT
-  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the fv bench).
+  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the forward bench).
   std::vector<int> hq2k_idx(q2k_entries, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
   if (load_npy) {
@@ -2067,7 +2067,7 @@ int main() {
       "=====================================\n",
       BLOCK);
 
-  // shapes: {B, H, num_blocks, topk, hd, label} (as the fv forward bench).
+  // shapes: {B, H, num_blocks, topk, hd, label} (as the forward bench).
   Sh shapes[] = {
       {1, 4, 8, 4, 128, "small"},
       {1, 16, 32, 8, 128, "fastvideo"},

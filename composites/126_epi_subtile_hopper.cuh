@@ -16,7 +16,6 @@
 //   SMEM target address must satisfy the swizzle's alignment
 //
 // Issuer: warp-group (128 threads), distributed work across warps.
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.10.24 (cvt), 9.7.16.5.16 (stmatrix)
 //
 #include <cstdint>

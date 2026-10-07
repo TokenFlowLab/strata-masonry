@@ -12,7 +12,6 @@
 //
 // Persistent-kernel schedulers loop on this primitive to consume tiles
 // without host-side launch overhead.
-// Source: knowledge/instructions/clc/clusterlaunchcontrol.md
 // PTX:    9.7.15.18 (clusterlaunchcontrol.try_cancel)
 //
 #include <cstdint>

@@ -215,7 +215,7 @@ __device__ __forceinline__ void decode_workitem(
 //   RESCALE_THRESHOLD: sticky-max threshold in log2 units (default 8). If the running max grew by
 //                      <= this, keep the old max -> alpha EXACTLY 1.0 -> corr skips the O-rescale.
 //                      Higher skips more but risks fp32 overflow of exp2 (2^threshold); 8 is very
-//                      safe. See docs/ATTENTION_LEARNINGS.md Q10.
+//                      safe.
 
 #ifdef ALPHA_DBG
 #include "../../../primitives/33_mbarrier_try_wait.cuh"
@@ -322,7 +322,7 @@ fmha_context_bf16_gen_kernel(const __grid_constant__ CUtensorMap tmap_q,
   //   toolchain/body changes (retest confirmed -12/-10 -> -25/-21, but it is schedule
   //   collateral). Re-verify with a fresh SASS-diff A/B after any nvcc/ptxas or hot-loop
   //   change; consider dropping the gate (const 0 everywhere) if a newer ptxas schedules it
-  //   cleanly. See docs/ATTENTION_LEARNINGS.md Q6.
+  //   cleanly.
   const uint32_t tmem_base_rt = *tmem_slot;
   if (tmem_base_rt != 0u) __trap();
   const uint32_t tmem_base = (MHA && !IS_CAUSAL) ? tmem_base_rt : 0u;

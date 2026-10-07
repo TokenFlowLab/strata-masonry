@@ -16,7 +16,6 @@
 //   scale-factor matrices live in TMEM (caller passes addresses)
 //
 // Issuer: one thread per CTA (cta_group::1) or per CTA-pair (cta_group::2).
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.10.10.1 (mma syntax + .block_scale.scale_vec K=96), 9.7.18.10.7.2.4 (block32 K=96 SF A), 9.7.18.10.7.3.4 (block32 K=96 SF B)
 //
 #include <cstdint>

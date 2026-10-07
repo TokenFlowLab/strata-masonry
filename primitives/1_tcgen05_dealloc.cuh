@@ -11,7 +11,6 @@
 //
 // Takes the base address previously returned by tcgen05_alloc and the
 // same n_cols value that was allocated.
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.7.1 (tcgen05.dealloc)
 //
 #include <cstdint>

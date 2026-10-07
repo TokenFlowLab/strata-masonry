@@ -13,7 +13,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.10.28.5.3 (cp.async.bulk.tensor store), 9.7.10.28.6.1 (commit_group), 9.7.10.28.6.2 (wait_group)
 //
 #include <cstdint>

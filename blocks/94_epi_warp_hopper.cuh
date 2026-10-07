@@ -11,7 +11,7 @@
 // Composes #22 (tma_store), #25 (bulk_commit_wait), #34 (fence_proxy_async),
 // #37 (bar_sync), #40 (stmatrix), #63 (cvt).
 //
-// Block functions (per code/PLAN.md "Block function signature contract"):
+// Block functions:
 //
 //   __device__ __forceinline__ void
 //   epi_warp_hopper_f16_block(const CUtensorMap& tma_d, char* smem_buf,
@@ -32,7 +32,6 @@
 //
 // Caller-collective on the 32-lane epilogue warp.
 //
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.10.24 (cvt), 9.7.16.5.16 (stmatrix), 9.7.10.28.5.3 (TMA store)
 
 #include <cstdint>

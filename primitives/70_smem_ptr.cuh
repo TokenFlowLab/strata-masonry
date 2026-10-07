@@ -10,7 +10,6 @@
 // every block / composite / test reaches for, so we house it as a
 // numbered primitive instead of duplicating it per file.
 //
-// Source: knowledge/instructions/cluster/mapa.md (and every SMEM-using primitive)
 // PTX:    7.7.6 Address Operands - cvta.to.shared
 //
 #pragma once

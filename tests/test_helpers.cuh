@@ -1,5 +1,5 @@
 // test_utils.cuh -- shared test infrastructure. Not a primitive; lives
-// outside the numbered dependency chain per PLAN.md #21.
+// outside the numbered dependency chain.
 //
 // Helpers are hoisted out of arch macro guards so the same names work for
 // tests built under -DPL_AGENTIC_SM90A, -DPL_AGENTIC_SM100A, or
@@ -213,7 +213,7 @@ inline bool check_close_f32(const float* ref, const float* test, int n,
 //   compute: callable that fills ref[0..n) with the reference when we miss.
 //
 // Returns true if loaded from cache (compute skipped), false if it computed.
-// Cache lives under $FMHA_REF_CACHE, else books/code/verify_cache (PL_REF_CACHE_DIR from the Makefile).
+// Cache lives under $FMHA_REF_CACHE, else PL_REF_CACHE_DIR (set by the build).
 template <class ComputeFn>
 inline bool cached_ref_f32(const std::string& key, float* ref, size_t n,
                            ComputeFn&& compute) {

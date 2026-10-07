@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "fmha" / "sm100a"))
 from fmha_context_bf16_cpu_verifier import bf16_to_f32, f32_to_bf16, fill
 
 
@@ -233,7 +233,7 @@ def main():
     p = sub.add_parser('verify')
     p.add_argument('--actual', required=True)
     p.add_argument('--inputs')
-    p.add_argument('--lse', help='optional FV raw log2 FP32 LSE dump')
+    p.add_argument('--lse', help='optional raw log2 FP32 LSE dump')
     p.add_argument('--case', choices=cases())
     for name, default in [('frames', 6), ('tokens-per-frame', 1456), ('frames-per-block', 3),
                           ('sink', 1), ('window', 6), ('heads', 12), ('batch', 1)]:

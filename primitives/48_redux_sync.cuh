@@ -11,7 +11,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/reduce/redux_sync.md
 // PTX:    9.7.15.13 (redux.sync, integer)
 //
 #include <cstdint>

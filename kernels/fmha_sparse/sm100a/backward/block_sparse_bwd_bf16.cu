@@ -1,10 +1,8 @@
 // block_sparse_bwd_bf16.cu -- VSA block-sparse BACKWARD, sm_100a.
 // Single-file basis kernel + bench harness (counterpart of
-// ../fmha_context_bf16_uniform_vsa.cu); the kernel/launch/binding split
-// happens only at fv-delivery time, like the forward.
+// ../block_sparse_bf16_uniform.cu).
 //
-// Backward of the SPARSE BASIS forward (../fmha_context_bf16_uniform_vsa.cu semantics);
-// math and scope per ROADMAP.md secs 1-4:
+// Backward of the SPARSE BASIS forward (../block_sparse_bf16_uniform.cu semantics):
 //   - uniform per-row q2k counts (every q-block selects the same topk >= 1)
 //   - every KV block is full (no variable_block_sizes)
 //   - B=1-any, H heads, D=128, bf16 inputs, natural layout [token, head, hd]
@@ -29,12 +27,12 @@
 //   <prefix>_M.npy  / _delta.npy          shape [B*H, S]     (= [H,S]   at B=1)
 //   M is log2-domain: M = max(score2) + log2(l).
 //
-// Env knobs (mirrors the fv forward bench):
+// Env knobs (mirrors the forward bench):
 //   LOAD_NPY=<dir>   q_S{S}.npy k_S{S}.npy v_S{S}.npy do_S{S}.npy (uint16 raw bf16 bits,
 //                    [S,H,D]) + idx_S{S}_blk{BLOCK}.npy (int32 [nb,topk], head-independent)
 //   BLOCK=64|128     sparse block size (runtime here; compile-time in the forward benches)
 //   SHAPE=0..2 + BATCH/HEADS/NB/TOPK   single-shape override
-//   VSA_GAUSS / VSA_SORT_SEL / VSA_SEED_QBLK   built-in fill / index knobs (as fv)
+//   VSA_GAUSS / VSA_SORT_SEL / VSA_SEED_QBLK   built-in fill / index knobs (as the forward bench)
 //   CPU_REF=0|1      skip / force the CPU reference (default: small shapes only,
 //                    forced when DUMP_BWD is set)
 //   DUMP_BWD=<prefix>
@@ -90,8 +88,7 @@
 #include "../../../../composites/106_clc_fetch_next_tile.cuh"
 #include "../../../../primitives/_warp_prof_noop.cuh"
 
-// sm_100a VSA block-sparse BACKWARD, blk64 v5 -- FA4's exact tile and flow
-// (FA4_BWD_DESIGN.md secs 1-5; ROADMAP.md sec 4c).
+// sm_100a VSA block-sparse BACKWARD, blk64 v5 -- FA4's exact tile and flow.
 //
 // KV-stationary main kernel on FA4's 128x128 tile: each CTA owns an ADJACENT
 // PAIR of 64-token KV blocks (kv rows 0-63 = even block, 64-127 = odd) and
@@ -268,7 +265,7 @@ constexpr uint32_t T_DQC      = T_DPT;
 
 extern __shared__ __align__(1024) uint8_t bwd_smem[];
 
-// Per-warp work-item source: CLC work stealing (fv skeleton) or grid stride.
+// Per-warp work-item source: CLC work stealing or grid stride.
 struct BwdItemSource {
   uint64_t* clc_full;
   uint64_t* clc_empty;
@@ -906,7 +903,7 @@ vsa_bwd_main_kernel(const __grid_constant__ CUtensorMap tmap_q,
   }
 
   else {
-    // Scheduler warp (fv CLC skeleton): produces try_cancel results into the
+    // Scheduler warp (CLC skeleton): produces try_cancel results into the
     // clc ring; also runs its own consumer fetch to know when to stop.
     if constexpr (USE_CLC) {
       int prod_stage = 0; uint32_t prod_phase = 1;
@@ -1328,7 +1325,7 @@ static void cpu_vsa_bwd_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
   }
 }
 
-// Deterministic fill in [-1, 1) (same hash as the fv bench).
+// Deterministic fill in [-1, 1) (same hash as the forward bench).
 static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -1337,7 +1334,7 @@ static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   }
 }
 
-// N(0,1) Gaussian fill via Box-Muller (VSA_GAUSS; same hash as the fv bench).
+// N(0,1) Gaussian fill via Box-Muller (VSA_GAUSS; same hash as the forward bench).
 static void fillg(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -1382,7 +1379,7 @@ static void run(const Sh& sh) {
   }
 
   // q2k index: LOAD_NPY head-independent [num_blocks, topk] broadcast, or topk DISTINCT
-  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the fv bench).
+  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the forward bench).
   std::vector<int> hq2k_idx((size_t)num_global_q_blocks * max_kv, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
   const bool sort_sel = getenv("VSA_SORT_SEL") != nullptr;
@@ -1714,7 +1711,7 @@ int main() {
          "M1 scaffold: CPU fp32 reference + sorted k2q inversion; GPU TODO (M3)\n"
          "=====================================\n", BLOCK);
 
-  // shapes: {B, H, num_blocks, topk, hd, label} (as the fv forward bench).
+  // shapes: {B, H, num_blocks, topk, hd, label} (as the forward bench).
   Sh shapes[] = {
     {1,  4,  8,  4, 128, "small"},
     {1, 16, 32,  8, 128, "fastvideo"},

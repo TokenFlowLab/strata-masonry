@@ -8,7 +8,6 @@
 // The complete_tx signal goes to the mbarrier at the address given; to route
 // it to a specific peer CTA (e.g. always CTA 0 of the pair), callers apply
 // the peer-bit mask 0xFEFFFFFF to the mbar address.
-// Source: knowledge/instructions/tma/tma_load.md
 // PTX:    9.7.10.28.5.3 (cp.async.bulk.tensor.cta_group::2)
 //
 #include <cstdint>
@@ -83,7 +82,7 @@ __device__ __forceinline__ void tma_load_2d_2sm_l2hint(
     : "memory");
 }
 
-// Convenient constant for the peer-bit mask (see tma_load.md Gotchas).
+// Convenient constant for the peer-bit mask.
 __device__ __forceinline__ uint32_t tma_peer_bit_mask(uint32_t mbar_smem) {
   return mbar_smem & 0xFEFFFFFFu;
 }

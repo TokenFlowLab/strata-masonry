@@ -1251,7 +1251,7 @@ static double run(const Sh& sh, bool verify) {
 
   // ---- variable_block_sizes: deterministic random in [VBS_MIN, BLOCK] (the FastVideo test uses
   // 16..64), shared across batch and heads (indexed by block id only, like the triton kernel).
-  // VBS_MIN=BLOCK (env VBS_MIN=64/128) -> all blocks full = the uniform_vsa case (regression). ----
+  // VBS_MIN=BLOCK (env VBS_MIN=64/128) -> all blocks full = the uniform case (regression). ----
   // Shared-input grid is full-block; retain the historical ragged default otherwise.
   const int vbs_min = block_sparse_bf16_benchmark::env_count("VBS_MIN", load_npy ? BLOCK : 16, 1, BLOCK);
   std::vector<int> hvbs(nb);

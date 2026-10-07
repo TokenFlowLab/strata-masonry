@@ -8,7 +8,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/copy/cp_async.md
 // PTX:    9.7.10.28.3.1 (cp.async.cg)
 //
 #include <cstdint>

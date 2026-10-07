@@ -2,8 +2,8 @@
 // ARCH: sm_100a
 // 99_correction_warp_test.cu -- exercises blocks/99_correction_warp.cuh.
 //
-// Owns the __global__ smoke-test wrapper for block 99 (per code/PLAN.md
-// "Blocks are header-only, device-callable building blocks"). The
+// Owns the __global__ smoke-test wrapper for block 99 (blocks are
+// header-only, device-callable building blocks). The
 // wrapper does the test-only envelope: tcgen05.alloc, seed the slice
 // with 1.0, tcgen05.wait::st, call the block to multiply by `factor`,
 // tcgen05.ld read-back, tcgen05.wait::ld, dealloc. The block itself

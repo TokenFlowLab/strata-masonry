@@ -7,7 +7,6 @@
 // Persistent-kernel pattern: issue try_cancel to fetch the next tile,
 // wait on its mbarrier, load the 128-bit handle, query_cancel to decode.
 // Loop until the hardware scheduler says no more tiles.
-// Source: knowledge/building_blocks/sched_warp.md
 // PTX:    9.7.15.18 (clusterlaunchcontrol)
 //
 #include <cstdint>

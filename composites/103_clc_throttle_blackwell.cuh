@@ -19,8 +19,6 @@
 //     wait throttle_full[s]; arrive throttle_empty[s]; advance s.
 //   Both bars cycle in lockstep with N stages of headroom.
 //
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md sec 8.2 (recipe
-// ingredient 7), knowledge/instructions/clc/clusterlaunchcontrol.md.
 // PTX:    9.7.15.16 (mbarrier).
 
 #include <cstdint>

@@ -14,7 +14,7 @@
 // #67 (tma_load_stage), #69 (phase tracking), #73 (k_loop_hopper),
 // #84 (warp_dispatch).
 //
-// Block function (per code/PLAN.md "Block function signature contract"):
+// Block function:
 //
 //   template <int NUM_STAGES, int TILE_M, int TILE_N, int TILE_K,
 //             int TILE_A_BYTES, int TILE_B_BYTES>
@@ -29,7 +29,6 @@
 // internally and routes load/MMA/idle warps appropriately. The caller
 // launches with blockDim.x == 3 * THREADS_PER_WG (= 384).
 //
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    9.7.17 (wgmma family), 9.7.15.16 (mbarrier), 9.7.10.28.5.3 (TMA)
 
 #include <cstdint>

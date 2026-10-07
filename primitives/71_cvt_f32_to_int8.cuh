@@ -7,7 +7,6 @@
 // destination is .s32 (the .s8 result is sign-extended into a 32-bit
 // register); this wrapper truncates to int8_t for the caller.
 //
-// Source: knowledge/instructions/convert/cvt.md
 // PTX:    9.7.10.24 (cvt.{rni}{.sat}.s8.f32)
 //
 #pragma once

@@ -16,7 +16,7 @@
 // fmha_context_bf16_varlen.cu). The teacher-forcing mask + K-loop cap are always on;
 // the cap comes from the higher (odd / peer1) tile so both peers keep the same K_TILES (lockstep
 // for the joint MMA), and each CTA masks its own rows with its own q_pos.
-// ALSO ASSUMES (checked host-side in run(), out-of-spec otherwise -- see masking.md):
+// ALSO ASSUMES (checked host-side in run(), out-of-spec otherwise):
 //   num_frames/half % num_frame_per_block == 0 (no partial last block), and SMALL sink
 //   (sink_size - num_frame_per_block) * frame_seqlen <= K_TILE (sink reaches <=1 K_TILE past a block end).
 //
@@ -1580,7 +1580,7 @@ template <bool MHA = false, bool HAS_SINK_ROPE_DELTA = false>
 static double run(const Shape& shape, bool verify) {
   const int  num_samples     = (int)shape.seqlens.size();
   const int  seqlen = shape.seqlens[0];
-  // Supported BCS regime (see the file-header ASSUMES + masking.md); num_frames is per half here.
+  // Supported BCS regime (see the file-header ASSUMES); num_frames is per half here.
   // Outside it decode/masking are out-of-spec, so fail loud rather than return silently-wrong results.
   if (shape.bcs) {
     if (shape.num_frames % shape.num_frame_per_block != 0) {

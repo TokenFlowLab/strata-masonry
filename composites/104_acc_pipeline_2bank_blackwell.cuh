@@ -151,9 +151,6 @@ void acc_pipeline_2bank_producer_acquire(AccPipeline2BankBars bars,
 // Caller elects (e.g. `if (elect_one_sync())`) so the primitive 11
 // wrapper is shared with non-acc commits.
 //
-// Source: knowledge/building_blocks/mma_warp.md sec 7.3 (1SM vs 2SM
-//         producer commit scope -- .multicast::cluster form).
-//         knowledge/building_blocks/pipeline.md sec 2.2 (acc_full_mbar).
 template <int CTA_GROUP>
 __device__ __forceinline__
 void acc_pipeline_2bank_producer_commit_cluster(AccPipeline2BankBars bars,
@@ -169,9 +166,6 @@ void acc_pipeline_2bank_producer_commit_cluster(AccPipeline2BankBars bars,
 // only (no cluster, no ctamask). For 1SM / cta_group::1 callers where
 // the mbar is plain .shared (not .shared::cluster).
 //
-// Source: knowledge/building_blocks/mma_warp.md sec 7.3 (1SM producer
-//         commit; cta_group::1 local-scope commit on acc-full mbar).
-//         knowledge/building_blocks/pipeline.md sec 2.2 (acc_full_mbar).
 template <int CTA_GROUP>
 __device__ __forceinline__
 void acc_pipeline_2bank_producer_commit_cta(AccPipeline2BankBars bars,
@@ -234,9 +228,6 @@ void acc_pipeline_2bank_consumer_release(AccPipeline2BankBars bars,
 // EPI thread arrives on the local mbar (arrive_count = 128 = 4 epi
 // warps x 32 lanes, single CTA).
 //
-// Source: knowledge/building_blocks/epi_warp.md sec 6.2 (1SM acc_empty
-//         release; plain .shared arrive).
-//         knowledge/building_blocks/pipeline.md sec 2.2 (acc_empty_mbar).
 __device__ __forceinline__
 void acc_pipeline_2bank_consumer_release_cta(AccPipeline2BankBars bars,
                                              const AccPipeline2BankState& s) {

@@ -13,7 +13,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/warp/setmaxnreg.md
 // PTX:    9.7.21.5 (setmaxnreg)
 //
 #include <cstdint>

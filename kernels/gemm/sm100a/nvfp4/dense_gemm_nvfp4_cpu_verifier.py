@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Independent CPU verifier for the KernelBridge dense NVFP4 contract."""
+"""Independent CPU verifier for the dense NVFP4 contract."""
 
 import argparse
 import json
@@ -121,7 +121,7 @@ def verify(case_name, actual_path, samples, mode, atol, rtol, seed):
         (error > atol) & (error > rtol * np.abs(reference))
     )
     return {
-        "schema": "kernelbridge.cpu-verifier-result/v0",
+        "schema": "cpu-verifier-result/v0",
         "family": "gemm/sm100a/nvfp4",
         "case": case_name,
         "passed": not bool(np.any(mismatch)),

@@ -2,7 +2,6 @@
 // PLAN: not a numbered primitive; mirrors tests/test_utils.cuh pattern for non-PTX code.
 #pragma once
 
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    n/a (test-helper aliases for the primitives layer)
 //
 #include <cuda_runtime.h>

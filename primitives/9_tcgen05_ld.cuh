@@ -58,7 +58,6 @@
 //
 // Issuer: every thread in the warp executes the same instruction
 // collectively (.sync.aligned). All lanes must pass the same taddr.
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.8.3 (tcgen05.ld + Table 61 shape x num)
 //
 #include <cstdint>

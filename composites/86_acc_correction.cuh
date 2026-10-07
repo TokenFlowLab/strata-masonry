@@ -7,7 +7,6 @@
 // Blackwell FMHA correction warp: after a new softmax max is found, the
 // PV accumulator in TMEM must be scaled by correction = exp2(old_m - new_m).
 // We do this by loading the accumulator, multiplying, and storing back.
-// Source: knowledge/building_blocks/correction_warp.md
 // PTX:    9.7.18.8 (TMEM ld/st), 9.7.18.10.10.1 (mma scale-input-d for rescale)
 //
 #include <cstdint>

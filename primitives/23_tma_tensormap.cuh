@@ -2,7 +2,7 @@
 //
 // ARCH: host
 //
-// Host-side only. Exception to the __device__ convention per PLAN.md #16.
+// Host-side only. Exception to the __device__ convention.
 // Builds CUtensorMap objects that describe tiled tensors for TMA load/store.
 //
 // The TMA hardware reads these objects through the tensormap proxy; they
@@ -22,7 +22,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_load.md
 // PTX:    9.7.10.29 (tensormap.replace) + CUDA driver cuTensorMapEncodeTiled (host)
 //
 #include <cuda.h>

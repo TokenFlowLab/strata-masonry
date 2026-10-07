@@ -9,7 +9,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_load.md
 // PTX:    9.7.10.28.5.5 (cp.async.bulk.prefetch.tensor)
 //
 #include <cuda.h>

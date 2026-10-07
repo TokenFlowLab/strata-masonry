@@ -12,7 +12,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_store.md
 // PTX:    9.7.10.28.5.3 (cp.async.bulk.tensor store)
 //
 #include <cuda.h>

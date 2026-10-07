@@ -2,8 +2,7 @@
 //
 // ARCH: sm_100a / sm_103a
 //
-// Faithful implementation of `knowledge/building_blocks/pipeline.md` --
-// the FULL Blackwell warp-specialized pipeline mbarrier suite, with
+// The FULL Blackwell warp-specialized pipeline mbarrier suite, with
 // all five warp roles wired correctly, but with NO real bodies:
 //   - MMA warp: per-stage full/empty handshake; NO tcgen05.mma.
 //   - LOAD warp: throttle + per-stage empty/full handshake; NO TMA loads.
@@ -12,7 +11,7 @@
 //   - EPI warps (4): acc_full / acc_empty handshake; NO TMEM ld, NO
 //     stmatrix, NO TMA stores.
 //
-// What this scaffold proves: every mbarrier in pipeline.md sec 2 can be
+// What this scaffold proves: every pipeline mbarrier can be
 // init'd, cycled by its real producer/consumer warp roles, and torn
 // down across `num_tiles` iterations + tcgen05 alloc/dealloc + cluster
 // barriers without hanging. Equivalent to the "skeleton" K0 used in
@@ -24,7 +23,7 @@
 //   LOAD arrive-only -> TMA load + arrive_expect_tx
 //   EPI arrive-only -> TMEM ld + cvt + stmatrix + TMA store
 //
-// SMEM barrier layout (per pipeline.md sec 2):
+// SMEM barrier layout:
 //   full[NUM_STAGES]            mainloop: load -> MMA
 //   empty[NUM_STAGES]           mainloop: MMA -> load
 //   acc_full[2]                 accumulator: MMA -> epi
@@ -35,7 +34,6 @@
 //   throttle_empty[2]           CLC throttle: sched -> load
 //   clc_response[8]             2 stages x 4 uint32 (16-byte CLC result)
 //
-// Source: knowledge/building_blocks/pipeline.md
 // PTX:    9.7.15.16 (mbarrier.{init,arrive,arrive_tx,try_wait.parity}),
 //         9.7.15.18 (clusterlaunchcontrol.try_cancel),
 //         9.7.18    (tcgen05.{alloc,relinquish_alloc_permit,dealloc,commit}),
@@ -83,7 +81,7 @@
 //
 // Cluster: __cluster_dims__(2, 1, 1)         -- 2-CTA cluster.
 // Block:   256 threads = 8 warps per CTA.
-// Warp roles (per pipeline.md sec 4.5 + warp-role pages):
+// Warp roles:
 //   warp 0     : MMA driver
 //   warp 1     : SCHED (CLC + throttle producer)
 //   warp 2     : LOAD (TMA stand-in + throttle consumer)
@@ -117,7 +115,7 @@ pipeline_blackwell_skeleton_kernel() {
   const int warp = threadIdx.x >> 5;
   const int lane = threadIdx.x & 31;
 
-  // --- MBAR INIT (per pipeline.md sec 4.1) -----------------------------
+  // --- MBAR INIT -------------------------------------------------------
   BlackwellPipelineBars bars{
       full, empty,
       acc_full, acc_empty,
@@ -130,7 +128,7 @@ pipeline_blackwell_skeleton_kernel() {
   pipeline_init_blackwell<NUM_STAGES, /*CTA_GROUP=*/2>(bars);
 
   // ====================================================================
-  // Warp role dispatch (per pipeline.md sec 4.5)
+  // Warp role dispatch
   // ====================================================================
   if (warp == 0) {
     // TMEM alloc owned by MMA warp; signal EPI via named barrier 6.
@@ -209,8 +207,7 @@ pipeline_blackwell_skeleton_kernel() {
       if (!next.valid) break;
     }
     // Drain in-flight clc_empty arrives so the next launch's tcgen05.alloc
-    // doesn't trip the alloc-state-machine guardrail
-    // (kernels/gemm/sm100a/tcgen05_local_memory_trap.md).
+    // doesn't trip the alloc-state-machine guardrail.
     if (peer == 0) {
       for (int s = 0; s < CLC_STAGES; ++s) {
         if (lane == 0) {
@@ -291,10 +288,8 @@ pipeline_blackwell_skeleton_kernel() {
   }
 
   // --- Teardown (cluster-barrier variant) ------------------------------
-  // Per-warp tail drains live in load_warp.md sec 6, mma_warp.md sec 6,
-  // sched_warp.md sec 6. The cluster_arrive/wait below is the larger-
-  // blast-radius alternative (see mma_warp.md sec 6.2 "Variant: cluster
-  // barrier"). Drains in-flight TMA stores first so a straggler CTA's
+  // The cluster_arrive/wait below is the larger-blast-radius alternative to
+  // per-warp tail drains. Drains in-flight TMA stores first so a straggler CTA's
   // pending stores don't race the cluster barrier.
   if (warp == 4 && lane == 0) {
     cp_async_bulk_wait_group<0>();

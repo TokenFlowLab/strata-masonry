@@ -15,7 +15,6 @@
 // slot's next writer is the async proxy, and that fence (MEMBAR.ALL.CTA +
 // FENCE.VIEW.ASYNC.S) contains this one plus the generic -> async edge.
 //
-// Source: knowledge/instructions/fence/fence.md sec 4.4
 // PTX:    9.7.15.4 (membar / fence)
 //
 

@@ -7,7 +7,6 @@
 // A single tile's K-loop on Blackwell: consume K_BLOCKS worth of TMA-loaded
 // stages via tcgen05.mma (caller supplies desc builders), then commit the
 // accumulator via tcgen05.commit.multicast.
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.18.10.10.1 (tcgen05.mma), 9.7.18.6.2 (pipelined pairs)
 //
 #include <cstdint>

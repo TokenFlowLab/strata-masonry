@@ -14,7 +14,6 @@
 //   wgmma.fence.sync.aligned must precede the first MMA in a group (#59)
 //
 // Issuer: warp-group (128 threads).
-// Source: knowledge/instructions/mma/wgmma.md
 // PTX:    9.7.17.5 (wgmma.mma_async, e4m3 / e5m2)
 //
 #include <cstdint>

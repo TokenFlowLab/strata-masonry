@@ -9,7 +9,7 @@
 // metadata. No scheduler state, no atomicAdd of a counter, no persistent
 // kernel.
 //
-// Block function (per code/PLAN.md "Block function signature contract"):
+// Block function:
 //
 //   __device__ __forceinline__ void
 //   sched_warp_blockidx_block(int tile_id, int tiles_m, int tiles_n,
@@ -29,7 +29,6 @@
 //       uint32_t* hit_col, uint32_t* hit_row,
 //       uint32_t* hit_sw,  uint32_t* hit_snake);
 //
-// Source: knowledge/building_blocks/sched_warp.md
 // PTX:    n/a (built-in blockIdx; no PTX issue)
 
 #include <cstdint>

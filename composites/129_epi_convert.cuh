@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.10.24 (cvt: f32 -> f16 / bf16 / e4m3 / e5m2 / e2m1)
 //
 #include <cstdint>

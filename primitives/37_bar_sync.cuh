@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/barrier/bar_sync.md
 // PTX:    9.7.15.1 (bar / barrier)
 //
 #include <cstdint>

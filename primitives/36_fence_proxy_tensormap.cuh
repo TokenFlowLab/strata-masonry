@@ -14,7 +14,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/fence/fence.md
 // PTX:    9.7.15.4 (fence.proxy.tensormap)
 //
 #include <cstdint>

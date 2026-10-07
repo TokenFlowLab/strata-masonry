@@ -11,10 +11,9 @@
 // factor before adding the next P*V correctly stitches the per-tile
 // softmax into the row-global softmax.
 //
-// Source: knowledge/building_blocks/correction_warp.md
 // PTX:    9.7.18.8 (TMEM ld/st)
 //
-// Block function (per code/PLAN.md "Block function signature contract"):
+// Block function:
 //
 //   __device__ __forceinline__ void
 //   correction_warp_block(uint32_t tmem_addr, float factor);

@@ -13,7 +13,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/convert/cvt.md
 // PTX:    9.7.10.24 (cvt: f32 -> f16 / bf16)
 //
 #include <cstdint>

@@ -1,6 +1,6 @@
 // npy_io.cuh -- minimal .npy v1.0/v2.0 reader for the unified VSA benchmark.
 //
-// Reads flat C-order arrays we write ourselves from bench/gen_inputs.py (uint16
+// Reads flat C-order arrays written by block_sparse_bf16_gen_inputs.py (uint16
 // bf16-bits for Q/K/V, int32 for the top-k index). No dtype/shape validation
 // beyond an element-count check by the caller -- we own both ends of the format.
 #pragma once

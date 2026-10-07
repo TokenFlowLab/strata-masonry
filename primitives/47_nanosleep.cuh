@@ -10,7 +10,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/barrier/mbarrier.md
 // PTX:    9.7.21.2 (nanosleep)
 //
 #include <cstdint>

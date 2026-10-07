@@ -1,6 +1,5 @@
 // block_sparse_bwd_bf16_blk128.cu -- VSA block-sparse BACKWARD, bf16, sm_100a,
-// 128-token blocks, KV-stationary, FA4-form (flash_bwd_sm100.py @ 0251105, 1cta, hdim128;
-// divergence ledger in FA4_ALIGNMENT.md).
+// 128-token blocks, KV-stationary, FA4-form (flash_bwd_sm100.py @ 0251105, 1cta, hdim128).
 //
 // One CTA owns one kv128 block and walks that block's q-list, one q128 block per step. Per step it
 // recomputes P^T, forms dS^T, accumulates dK/dV in TMEM, and pushes the step's dQ tile to a global
@@ -2393,7 +2392,7 @@ static void cpu_vsa_bwd_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
   }
 }
 
-// Deterministic fill in [-1, 1) (same hash as the fv bench).
+// Deterministic fill in [-1, 1) (same hash as the forward bench).
 static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -2453,7 +2452,7 @@ static void run(const Sh& sh) {
   }
 
   // q2k index: LOAD_NPY head-independent [num_blocks, topk] broadcast, or topk DISTINCT
-  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the fv bench).
+  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the forward bench).
   std::vector<int> hq2k_idx(q2k_entries, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
   if (load_npy) {
@@ -2993,7 +2992,7 @@ int main() {
                                                  : "non-persistent",
       BLOCK);
 
-  // shapes: {B, H, num_blocks, topk, hd, label} (as the fv forward bench).
+  // shapes: {B, H, num_blocks, topk, hd, label} (as the forward bench).
   Sh shapes[] = {
       {1, 4, 8, 4, 128, "small"},
       {1, 16, 32, 8, 128, "fastvideo"},

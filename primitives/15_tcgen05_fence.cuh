@@ -12,7 +12,6 @@
 // These fences are single-thread (issuer-local) and do NOT require
 // .cta_group -- they are independent of 1SM vs 2SM.
 //
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.11.1 (tcgen05.fence)
 //
 __device__ __forceinline__ void tcgen05_fence_before_thread_sync() {

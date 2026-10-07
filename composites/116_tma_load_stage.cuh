@@ -12,7 +12,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/load_warp.md
 // PTX:    9.7.10.28.5.3 (cp.async.bulk.tensor), 9.7.15.16.14 (mbarrier.expect_tx)
 //
 #include <cstdint>

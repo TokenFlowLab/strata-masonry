@@ -24,7 +24,6 @@
 // instruction. The file name says "tmem" for naming-scheme symmetry with
 // related sm_103a work, but the descriptor itself is SMEM-side -- TMEM
 // addresses are 32-bit lane:col, not byte-addressed.
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.4.1 (descriptor format, bit 52 absolute mode)
 //
 #include <cstdint>

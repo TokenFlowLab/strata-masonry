@@ -41,7 +41,7 @@
 //     epilogue); interior tiles have a bmm1/bmm2 against a different slot in between, which breaks the
 //     CSE. Proof: with both M-tiles waiting their own slot but pointed at the SAME descriptor value it
 //     is wrong (max|err| 0.77), and with the two slots SWAPPED -- identical bytes, different descriptor
-//     values -- it is correct (0.0017). See SmemDescPair below and fmha_vsa_log.md.
+//     values -- it is correct (0.0017). See SmemDescPair below.
 //     Gate any change here with an oracle diff (DUMP_O + external reference): the built-in
 //     check_close_f32 (atol 0.05) is loose enough to hide this for topk >= 4.
 //   - No causal mask and no padding mask: every selected block is FULL (all 512 tokens valid) and

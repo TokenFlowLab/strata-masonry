@@ -1,25 +1,31 @@
-# Block-sparse BF16 FMHA problem sizes (SM100a)
+# Block-sparse BF16 FMHA forward (SM100a)
 
-Shared workload grid for forward block-sparse attention. Only the cases below
-are in scope; no additional smoke, batch, ragged, or variable-length cases.
+| Implementation | Block size |
+|---|---|
+| [block_sparse_bf16_uniform.cu](block_sparse_bf16_uniform.cu) | 64 (128 with `-DVSA_BLK128=true`) |
+| [block_sparse_bf16_uniform_2sm.cu](block_sparse_bf16_uniform_2sm.cu) | 128, 2SM |
+| [block_sparse_bf16_uniform_blk256.cu](block_sparse_bf16_uniform_blk256.cu) | 256 |
+| [block_sparse_bf16_uniform_2sm_blk256.cu](block_sparse_bf16_uniform_2sm_blk256.cu) | 256, 2SM |
+| [block_sparse_bf16_uniform_blk512.cu](block_sparse_bf16_uniform_blk512.cu) | 512 |
+| [block_sparse_bf16_uniform_2sm_blk512.cu](block_sparse_bf16_uniform_2sm_blk512.cu) | 512, 2SM |
+| [block_sparse_bf16_varlen.cu](block_sparse_bf16_varlen.cu) | 64 (128 with `-DVSA_BLK128=true`), variable block sizes |
 
-## Fixed settings
+CPU reference: [block_sparse_bf16_cpu_verifier.py](block_sparse_bf16_cpu_verifier.py).
+Input generator: [block_sparse_bf16_gen_inputs.py](block_sparse_bf16_gen_inputs.py).
 
-- `B = 1`, `Hq = Hkv = 8`, `D = 128`.
-- BF16 Q/K/V, non-causal MHA.
-- Q and KV sequence lengths are equal: `Sq = Skv = S`.
-- Query and KV blocks have the same size: `block_size = 64, 128, 256, or 512`.
-- Sparse density is 25%: each query block selects exactly
-  `topk = S / (4 * block_size)` distinct KV blocks.
-- Attention uses all tokens in those selected blocks, with scale `1 / sqrt(D)`.
+## Computation
 
-## Problem sizes
+- `B = 1`, `Hq = Hkv = 8`, `D = 128`, BF16, non-causal MHA, `Sq = Skv = S`.
+- Query and KV blocks have the same size. Each query block attends all tokens of exactly
+  `topk = S / (4 * block_size)` distinct KV blocks (25% density), with scale `1 / sqrt(D)`.
+- Selections are shared across heads.
 
-There are 32 cases: eight sequence lengths times four block sizes.
-The table entries are the selected KV-block counts per query block (`topk`).
-The total number of blocks is `num_blocks = S / block_size`.
+## Cases
 
-| S | blk64 topk | blk128 topk | blk256 topk | blk512 topk |
+32 cases: eight sequence lengths times four block sizes. Entries are `topk`;
+`num_blocks = S / block_size`.
+
+| S | blk64 | blk128 | blk256 | blk512 |
 |---:|---:|---:|---:|---:|
 | 4096 | 16 | 8 | 4 | 2 |
 | 8192 | 32 | 16 | 8 | 4 |
@@ -30,43 +36,57 @@ The total number of blocks is `num_blocks = S / block_size`.
 | 262144 | 1024 | 512 | 256 | 128 |
 | 524288 | 2048 | 1024 | 512 | 256 |
 
-This specifies the workload, not verification or performance results for every case.
+Varlen is run here with full blocks only (`VBS_MIN=block_size`).
 
-## Shared inputs
+## Inputs
 
-For each S, every implementation and block size uses the same Q/K/V tensors.
-Selection indices are separate for each block size; implementations of the same
-case must use identical indices as well as identical Q/K/V values.
+Two modes; never compare performance across modes or seeds:
 
-Two input modes are supported for both benchmarking and CPU verification:
-
-- Seeded generation (default): `INPUT_SEED=0` in the kernel, `--seed 0` in the CPU verifier.
-  Both reproduce the same uint32 hash, uniform values in [-1,1), BF16 round-to-nearest-even,
-  and sorted Fisher-Yates block selection. No input files are needed.
-- Saved inputs: `LOAD_NPY=<directory>` in the kernel, `--inputs <directory>` in the verifier.
-  Reuse the existing Gaussian Q/K/V and block indices from
-  [bench/gen_inputs.py](bench/gen_inputs.py) for historical comparisons.
-
-Do not compare performance between different input modes or seeds. Seeded generation
-and historical files need not produce the same values. Input setup is outside timing.
-
-Optional saved files are relative to this directory:
+- Seeded (default): `INPUT_SEED=<n>` in the driver, `--seed <n>` in the verifier. Both use the same
+  uint32 hash, uniform values in [-1,1), BF16 round-to-nearest-even and sorted Fisher-Yates
+  block selection. No files needed.
+- Saved files: `LOAD_NPY=<dir>` in the driver, `--inputs <dir>` in the verifier. Generate them with
+  `block_sparse_bf16_gen_inputs.py` (Gaussian Q/K/V):
 
 ```text
-inputs/q_S{S}.npy
-inputs/k_S{S}.npy
-inputs/v_S{S}.npy
-inputs/idx_S{S}_blk{block_size}.npy
+<dir>/{q,k,v}_S{S}.npy               uint16 BF16 bits [S, 8, 128]
+<dir>/idx_S{S}_blk{block_size}.npy   int32 [num_blocks, topk], sorted, shared across heads
 ```
 
-Q/K/V files store `[S, H, D]` arrays as uint16 BF16 bit patterns (`B = 1`).
-Index files store int32 `[num_blocks, topk]` arrays, shared across heads.
-Selection uses the existing query-block-seeded xorshift32 Fisher-Yates algorithm,
-with distinct selected block IDs sorted in ascending order.
+Q/K/V are shared across block sizes; index files are per block size.
 
-Preserve existing input files. In file mode, complete any missing inputs before running a case;
-do not silently substitute a different shape, density, or selection pattern.
+## CPU verification
 
-The original six-size grid and historical results are recorded in
-[bench/README.md](bench/README.md) and [fmha_vsa_log.md](fmha_vsa_log.md).
-This grid additionally includes S=262144 and S=524288.
+The verifier recomputes the output with chunked FP32 QK, stable online softmax and PV, and checks
+every output element by default (`--mode sampled --samples 64` checks 64 rows and is reported as
+sampled). `--actual` is the driver's `DUMP_O` file: raw FP32 `[S, H, D]`. An element passes if finite
+and `abs(error) <= 0.002 + 0.02 * abs(reference)`. `reference` writes the full CPU result;
+`self-test` checks the verifier. Nonzero exit on failure.
+
+## Benchmark
+
+[block_sparse_bf16_benchmark.cuh](block_sparse_bf16_benchmark.cuh): `WARMUP` (default 3),
+`ITERS` (default 20), `GRAPH=0|1`. Timing is the CUDA-event batch mean over reused (L2-warm)
+buffers; allocation, input setup, capture, output copies and verification are excluded.
+TFLOPS count the selected pairs: `4 * D * H * num_blocks * topk * block_size^2 / seconds / 1e12`.
+`NO_BENCHMARK=1` launches once untimed; `NOVERIFY=1` skips the in-driver CPU check.
+
+## Commands
+
+From the repository root (blk64, S=4096):
+
+```bash
+cmake -S . -B build && cmake --build build -j --target kernel_sm100a_block_sparse_bf16_uniform
+INPUT_SEED=0 SHAPE=2 BATCH=1 HEADS=8 NB=64 TOPK=16 NOVERIFY=1 NO_BENCHMARK=1 DUMP_O=sparse-out \
+  build/bin/kernel_sm100a_block_sparse_bf16_uniform
+python3 kernels/fmha_sparse/sm100a/block_sparse_bf16_cpu_verifier.py verify \
+  --seed 0 --seqlen 4096 --block-size 64 --actual sparse-out.out
+INPUT_SEED=0 SHAPE=2 BATCH=1 HEADS=8 NB=64 TOPK=16 NOVERIFY=1 WARMUP=20 ITERS=100 \
+  build/bin/kernel_sm100a_block_sparse_bf16_uniform
+```
+
+For other cases set `NB = S / block_size`, `TOPK = NB / 4` and pick the matching binary. For the
+blk128 builds of `uniform` and `varlen`, configure a separate build directory with
+`-DCMAKE_CUDA_FLAGS=-DVSA_BLK128=true`. For saved inputs run
+`python3 kernels/fmha_sparse/sm100a/block_sparse_bf16_gen_inputs.py --outdir inputs` and add
+`LOAD_NPY=inputs` / `--inputs inputs`.

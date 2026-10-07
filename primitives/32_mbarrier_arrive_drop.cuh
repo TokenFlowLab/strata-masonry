@@ -9,7 +9,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/barrier/mbarrier.md
 // PTX:    9.7.15.16.17 (mbarrier.arrive_drop)
 //
 #include <cstdint>

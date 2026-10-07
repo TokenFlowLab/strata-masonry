@@ -14,7 +14,6 @@
 #pragma once
 #if defined(PL_AGENTIC_SM90A) || defined(PL_AGENTIC_SM100A) || defined(PL_AGENTIC_SM103A)
 
-// Source: knowledge/instructions/copy/mapa.md
 // PTX:    9.7.10.26 (mapa), 9.7.10.27 (getctarank)
 //
 #include <cstdint>

@@ -18,7 +18,7 @@
 // 75 (K-loop), plus shared primitives 0 (alloc), 1 (dealloc),
 // 2 (relinquish), 38 (barrier_cluster).
 //
-// Block function (per code/PLAN.md "Block function signature contract"):
+// Block function:
 //
 //   template <int CtaGroup, MmaMxf4Variant V, int M, int N>
 //   __device__ __forceinline__ void
@@ -36,7 +36,6 @@
 // uses a `dont_run` host flag in its __global__ wrapper to instantiate
 // the kernel without engaging the K-loop.
 //
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.18.10.10.1 (block_scale K=96), 9.7.18.10.7.2.4 (block32 K=96 SF A),
 //         9.7.18.10.7.3.4 (block32 K=96 SF B), 9.7.18.4.1 (absolute desc)
 

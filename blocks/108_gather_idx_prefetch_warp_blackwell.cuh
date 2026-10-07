@@ -32,9 +32,6 @@
 // codebase (cf. the throttle handshake in 88_load_warp_blackwell.cuh):
 // start stage=0, phase=1; wait idx_empty[stage], fill, arrive idx_full[stage].
 //
-// Source: K13_gather_fusion_design.md (cp.async port / index prefetch);
-//         knowledge/building_blocks/idle_warp.md (CLC arrive role);
-//         knowledge/building_blocks/load_warp.md (producer/consumer phases).
 // PTX:    9.7.15.16.16 (mbarrier.arrive), 9.7.21.5 (setmaxnreg.dec).
 //
 #include <cstdint>

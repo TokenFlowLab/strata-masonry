@@ -23,7 +23,6 @@
 // prerequisite's tail (final TMA stores, dealloc).
 //
 // Per-thread instruction; no .sync.aligned. Idempotent within a CTA.
-// Source: knowledge/instructions/barrier/griddepcontrol.md
 // PTX:    9.7.15.14 (griddepcontrol)
 
 #pragma once

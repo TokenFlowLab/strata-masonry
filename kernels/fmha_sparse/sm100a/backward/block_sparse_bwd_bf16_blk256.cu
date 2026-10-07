@@ -1,8 +1,7 @@
 // block_sparse_bwd_bf16_blk256.cu -- VSA block-sparse BACKWARD,
 // sm_100a, 256-token sparse blocks. Single-file kernel + bench harness.
 //
-// Backward of the SPARSE BASIS forward (../fmha_context_bf16_uniform_vsa.cu semantics);
-// math and scope per ROADMAP.md secs 1-4:
+// Backward of the SPARSE BASIS forward (../block_sparse_bf16_uniform.cu semantics):
 //   - uniform per-row q2k counts (every q-block selects the same topk >= 1)
 //   - every KV block is full (no variable_block_sizes)
 //   - B=1 for the GPU path (the CPU reference is B-any), H heads, D=128,
@@ -26,7 +25,7 @@
 //   <prefix>_M.npy  / _delta.npy          shape [B*H, S]     (= [H,S]   at B=1)
 //   M is log2-domain: M = max(score2) + log2(l).
 //
-// Env knobs (mirrors the fv forward bench):
+// Env knobs (mirrors the forward bench):
 //   LOAD_NPY=<dir>   q_S{S}.npy k_S{S}.npy v_S{S}.npy do_S{S}.npy (uint16 raw bf16 bits,
 //                    [S,H,D]) + idx_S{S}_blk{BLOCK}.npy (int32 [nb,topk], head-independent)
 //   BLOCK=256        sparse block size; the GPU path runs only at BLOCK=256
@@ -34,7 +33,7 @@
 //   VSA_BWD_2CTA=<set>  launch the TWO_CTA=true instantiation (cluster pair;
 //                    presence-tested, any value selects it)
 //   SHAPE=0..2 + BATCH/HEADS/NB/TOPK   single-shape override
-//   VSA_GAUSS / VSA_SORT_SEL / VSA_SEED_QBLK   built-in fill / index knobs (as fv)
+//   VSA_GAUSS / VSA_SORT_SEL / VSA_SEED_QBLK   built-in fill / index knobs (as the forward bench)
 //   CPU_REF=0|1      skip / force the CPU reference (default: small shapes only,
 //                    forced when DUMP_BWD is set)
 //   DUMP_BWD=<prefix>
@@ -113,8 +112,8 @@
 //     slices via cta_group::2 TMA (no multicast; tx lands on the leader),
 //     dS cluster exchange + relay warp, dQ as a K=256 cluster GEMM.
 //
-// Forked from the blk128-aligned kernel (block_sparse_bwd_bf16_blk128.cu); the 1cta warp/pipeline/register contract is identical to it
-// (FA4_ALIGNMENT.md). Metadata: pair_offset/pair_union indexed by (bh, kv256
+// Forked from the blk128-aligned kernel (block_sparse_bwd_bf16_blk128.cu); the 1cta warp/pipeline/register contract is identical to it.
+// Metadata: pair_offset/pair_union indexed by (bh, kv256
 // block), entries = plain q256 ids.
 //
 namespace vsa_bwd_blk256 {
@@ -1973,7 +1972,7 @@ static void cpu_vsa_bwd_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
   }
 }
 
-// Deterministic fill in [-1, 1) (same hash as the fv bench).
+// Deterministic fill in [-1, 1) (same hash as the forward bench).
 static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -1982,7 +1981,7 @@ static void fillr(__nv_bfloat16* h, long n, unsigned seed) {
   }
 }
 
-// N(0,1) Gaussian fill via Box-Muller (VSA_GAUSS; same hash as the fv bench).
+// N(0,1) Gaussian fill via Box-Muller (VSA_GAUSS; same hash as the forward bench).
 static void fillg(__nv_bfloat16* h, long n, unsigned seed) {
   for (long i = 0; i < n; ++i) {
     uint32_t x = (uint32_t)i * 2654435761u + seed * 40503u + 0x9e3779b9u;
@@ -2027,7 +2026,7 @@ static void run(const Sh& sh) {
   }
 
   // q2k index: LOAD_NPY head-independent [num_blocks, topk] broadcast, or topk DISTINCT
-  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the fv bench).
+  // block ids per (b,h,mtile) via partial Fisher-Yates (same knobs as the forward bench).
   std::vector<int> hq2k_idx((size_t)num_global_q_blocks * max_kv, 0);
   std::vector<int> hq2k_num(num_global_q_blocks, topk);
   const bool sort_sel = getenv("VSA_SORT_SEL") != nullptr;

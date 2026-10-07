@@ -8,13 +8,11 @@
 // Why this file still exists after Phase 4:
 //   The Phase 4 probe-graduation rounds drained every cta_group::1
 //   wrapper from this file -- their runtime tests now live in their
-//   owning <N>_<name>_test.cu (see COVERAGE_AUDIT.md "Phase 4 round
-//   status" table). The cta_group::2 wrappers below were NOT graduated
+//   owning <N>_<name>_test.cu. The cta_group::2 wrappers below were NOT graduated
 //   to per-wrapper smoke tests because cta_group::2 dispatch is not
 //   testable in isolation: it requires a 2-CTA cluster + paired
 //   tcgen05_alloc<2> + cluster.barrier sync + valid swizzle-aligned
-//   SMEM matrix descriptors (see COVERAGE_AUDIT.md "Validation surface
-//   for cta_group::2 wrappers" section). Those prerequisites only
+//   SMEM matrix descriptors. Those prerequisites only
 //   exist at the block level -- runtime validation lives in
 //     - tests/88_load_warp_blackwell_test.cu  (cluster + 2SM TMA + alloc/dealloc)
 //     - tests/100_pipeline_blackwell_test.cu  (full pipeline + 2SM MMA + commit_multicast)

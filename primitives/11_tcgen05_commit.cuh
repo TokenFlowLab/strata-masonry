@@ -13,7 +13,6 @@
 //   multicast::cluster -- arrive on every peer CTA's mbarrier via a cluster
 //                         bit mask (one bit per peer CTA, lowest bit = self).
 //                         The mbarrier must be in .shared::cluster.
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.12.1 (tcgen05.commit)
 //
 #include <cstdint>

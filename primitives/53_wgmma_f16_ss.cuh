@@ -19,7 +19,6 @@
 //   accumulator registers must be claimed via setmaxnreg.inc (#46)
 //
 // Issuer: warp-group (128 threads, 4 aligned warps).
-// Source: knowledge/instructions/mma/wgmma.md
 // PTX:    9.7.17.5 (wgmma.mma_async, f16 SS), 9.7.17.6 (sparse)
 //
 #include <cstdint>

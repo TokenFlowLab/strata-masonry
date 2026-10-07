@@ -13,7 +13,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/sched_warp.md
 // PTX:    n/a (prefix-sum search math; tensormap selection per group)
 //
 #include <cstdint>

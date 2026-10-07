@@ -27,12 +27,12 @@
 //
 // K_TILE=256 is forced by the B128 SMEM swizzle: FP4 packs 2 elements per
 // byte, so a K_TILE=256 row is 128 B wide, which is what B128 wants. The
-// K_TILE=128 / B64 variant was measured much slower (see the log's sec 6).
+// K_TILE=128 / B64 variant was measured much slower.
 //
 // Scale factors: mxf4nvf4 block32 (.scale_vec::2X), UE8M0, REAL per-block
 // values delivered every stage: GMEM -TMA-> SMEM -tcgen05.cp-> TMEM, all
 // covered by the mainloop full_bar. Layout verified against PTX ISA 9.4
-// Fig 239/258 (sec 9.7.18.10.7) -- see GEMM_LEARNINGS Q99-Q103.
+// Fig 239/258 (sec 9.7.18.10.7).
 //
 // Operand bytes, per CTA ("loose" = the per-atom-cell ALTERNATIVE below):
 //
@@ -124,9 +124,9 @@
 //   Ring slot = 32 cols (SFA 0-15, SFB 16-31). Costs per stage per operand:
 //   4 cps vs 2, 2 KB SMEM vs 1 (padding also rides the TMA and the packed
 //   GMEM buffer), NS 7 -> 6 at 28 KB/stage; TMEM still fits (256 + 6x32 = 448).
-//   Measured ~6-8pp slower for MXFP4 (log sec 17) -- kept only as the shape
+//   Measured ~6-8pp slower for MXFP4 -- kept only as the shape
 //   a block16 NVFP4 variant would use, with bytes 2-3 valid and SF_ID
-//   sequence 0,0,0,0 instead of 0,2,0,2. See GEMM_LEARNINGS Q106.
+//   sequence 0,0,0,0 instead of 0,2,0,2.
 //
 // Gotcha: the acc bank stride is N_TILE_CLUSTER, so NTC=128 is what leaves
 // the scale region intact. With NTC=256 bank 1 starts at col 256 and the
@@ -134,7 +134,7 @@
 // capped at 512 per SM, so there is no room to move the scales up; do NOT
 // raise NTC without re-solving that. A 1-bank NTC=256 variant avoids the
 // overlap but serializes MMA against the epilogue and measured worse
-// (60.6% vs 70.4% SOL) -- see the log's sec 11.
+// (60.6% vs 70.4% SOL).
 //
 //
 // Worked example -- the three SFA layouts (natural -> GMEM/SMEM -> TMEM).
@@ -208,9 +208,6 @@
 //   TMEM row = (r-384)%32). In a cell, bytes 0-1 = the even atom's scales,
 //   bytes 2-3 = the odd atom's (SF_ID picks the pair). SFB: same shapes
 //   with N rows 0-127, band 0, loaded by BOTH peers.
-//
-// Docs: dense_gemm_nvfp4.md (design), dense_gemm_nvfp4_log.md (measurements),
-//       dense_gemm_nvfp4_recipe.md (diff vs K0 BF16).
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -276,15 +273,15 @@ constexpr int K1_M_TILE_CLUSTER = 256;
 constexpr int K1_M_TILE_PER_CTA = 128;
 // K_TILE=256 is not tunable in practice: FP4 packs 2 elements/byte, so a
 // K_TILE=256 row is exactly the 128 B that the B128 SMEM swizzle wants.
-// K_TILE=128 would need B64, which measured far worse (log sec 6).
+// K_TILE=128 would need B64, which measured far worse.
 constexpr int K1_K_TILE         = 256;   // 4 FP4 MMA atoms/stage (MMA K=64 each)
 constexpr int K1_NUM_STAGES     = 5;     // default only; dispatch picks NS per K
 #if defined(K1_TUNE_EPI)
 constexpr int K1_EPI_SUB_COLS   = K1_TUNE_EPI;
 #else
 constexpr int K1_EPI_SUB_COLS   = 16;  // 16: finer store pipelining, +1-2pp on every
-                                       // NTC=256 row and neutral-to-positive at NTC=128
-                                       // (log sec 39); 32 freed the D ring for NS=8
+                                       // NTC=256 row and neutral-to-positive at NTC=128;
+                                       // 32 freed the D ring for NS=8
 #endif
 #if defined(K1_TUNE_EPI_BUFS)
 constexpr int K1_EPI_NUM_BUFS   = K1_TUNE_EPI_BUFS;
@@ -295,7 +292,7 @@ constexpr int K1_EPI_NUM_BUFS   = 2;
 // FP4: 2 elements per byte, hence the /2 on every K extent.
 constexpr int K1_EPI_BUF_BYTES = K1_M_TILE_PER_CTA * K1_EPI_SUB_COLS * 2;
 constexpr int K1_D_TILE_BYTES  = K1_EPI_NUM_BUFS * K1_EPI_BUF_BYTES;
-// A 4-deep D ring at NTC=128 was tested (log sec 47) and LOSES 2-4pp
+// A 4-deep D ring at NTC=128 was tested and LOSES 2-4pp
 // on the qkv rows -- more concurrent TMA stores contend with loads,
 // same mechanism as the NTC=256 per-warp regression. Keep 2.
 constexpr int k1_epi_num_bufs(int ntc) {
@@ -339,7 +336,7 @@ struct K1SfLayout {
   // NTC=256: banks [0,256) and [192,448) (64-col overlap, freed early by
   // the epi via the ovl_free bar) + depth-2 scale ring at 448.
   // (A 48-col window -- bank1 at 208, ring at 464 -- was built and
-  // REFUTED: exact but -10%, TMEM alignment penalty; log sec 52.)
+  // REFUTED: exact but -10%, TMEM alignment penalty.)
 #if defined(K1_TMP_STRIDE256)
   static constexpr uint32_t ACC_BANK_STRIDE = (NTC == 128) ? NTC : 256;
 #else
@@ -500,7 +497,7 @@ void load_warp_k1_1tile_2sm_fp4(WpCtx& wpc,
   //   Same-m-run orders (ping-pong reuse): each cluster streams its own
   //   PRIVATE A row (SMEM-resident via ping-pong, never L2-reused) --
   //   with evict_last it thrashes B out of L2 (measured 4.5 TB/s DRAM
-  //   vs 0.6 for AlongN, log sec 37) -> evict_first.
+  //   vs 0.6 for AlongN) -> evict_first.
   // B: full evict_last -- B is the shared stream in every order.
   const uint64_t cache_policy_a =
       make_l2cache_policy_fractional_evict_last_unchanged(0.25f);
@@ -544,7 +541,7 @@ void load_warp_k1_1tile_2sm_fp4(WpCtx& wpc,
 #if defined(K1_PF_DIST)
       constexpr int kPfDist = K1_PF_DIST;
 #elif 1
-      // Swept 2026-08-23 (log sec 43): 12 beats NUM_STAGES on the
+      // Swept: 12 beats NUM_STAGES on the
       // K=4096 A-streaming rows (+0.4pp 2M+2N), neutral on big rows.
       constexpr int kPfDist = 12;
 #else
@@ -925,7 +922,7 @@ void load_warp_k1_ntiles_2sm_fp4(WpCtx& wpc,
       const int n_off = n_t * N_TILE_CLUSTER + peer * N_TILE_PER_CTA;
       // Ping-pong K reuse within a same-m run (legal for any
       // K_BLOCKS % NS == 0; the KB == NS full skip is the degenerate
-      // case). See log sec 37.
+      // case).
       const bool pp_reuse = RUN_CLC && (K_BLOCKS_T % NS_T == 0)
                             && (m_tile == prev_m_tile);
       const bool pp_backward = pp_reuse && !prev_pp_backward;
@@ -1082,7 +1079,7 @@ void mma_warp_k1_1tile_2sm_nvfp4(WpCtx& wpc,
     const uint64_t dsfb_s = desc_sfb0 + s * SFB_STAGE_DELTA;
     // This stage's TMEM scale slot: SFA cells first, then SFB cells.
     // Depth-2 ring relies on the tensor pipe's FIFO cp/mma order (validated
-    // by the K1_SF_RING2 probe, log sec 23; the exact verify is the guard).
+    // by the K1_SF_RING2 probe; the exact verify is the guard).
 #if defined(K1_SF_RING2)
     const uint32_t ring_slot = (uint32_t)(s & 1);
 #else
@@ -1197,7 +1194,7 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
   // NTC=256: the overlap-window wait is taken INSIDE the k=0 iteration,
   // after the k=0 full-bar waits and scale-cp issues, so part of the
   // window-drain chain (~360 ns) hides behind work the warp must do
-  // anyway (log sec 51).
+  // anyway.
   wp_end(wpc, WP_MMA_WAIT_ACC);
 #if defined(K1_TMP_TPROBE)
   unsigned long long tp1 = probe ? k1_gt() : 0;
@@ -1235,7 +1232,7 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
     // next stage's cps sit behind them in the tensor pipe's FIFO. We
     // keep depth 2 anyway -- depth-1 rests on two behaviors PTX does
     // not promise (FIFO dequeue, operand latch at dequeue) and the 24
-    // columns it would save are not needed. GEMM_LEARNINGS Q113.
+    // columns it would save are not needed.
     const uint32_t ring_slot = (uint32_t)(k & 1);
     const uint32_t sfa_t = tmem_base + SF::RING_OFFSET + ring_slot * SF::STAGE_COLS;
     const uint32_t sfb_t = sfa_t + SF::SFA_STAGE_COLS;
@@ -1244,7 +1241,7 @@ void mma_warp_k1_1tile_2sm_nvfp4_splitb(WpCtx& wpc,
     const bool hoist = (N_TILE_CLUSTER == 256) && (k == 0);
     // (Hoisting stage-1's cps too was tested and LOSES ~0.3pp: the
     // stage-1 full-bar peek waits stall the warp earlier than the
-    // window wait would -- log sec 51.)
+    // window wait would.)
     if (hoist) {
 #if !defined(K1_DISABLE_SF_TMA_CP) && !defined(K1_DISABLE_SF_CP)
       if (elect_one_sync()) {
@@ -1497,7 +1494,7 @@ void k1_epi_1tile_earlyrelease(WpCtx& wpc,
   // every buffer and runs its own TMA chain (wait_group state is
   // per-thread). No CTA-wide bar.sync on the store path -- the old
   // 2 x bar.sync(128) per sub plus single-lane issue was ~1.1 us/tile
-  // (eprobe, log sec 46), pacing the MMA at short K.
+  // (eprobe), pacing the MMA at short K.
   #pragma unroll
   for (int sub = 0; sub < EPI_SUB_COUNT; ++sub) {
     const int buf  = sub & (EPI_NUM_BUFS - 1);
@@ -1596,7 +1593,7 @@ void k1_epi_ntiles_runclc(WpCtx& wpc,
     // per-sub lockstep, so warp 4 must not release the CLC slot until
     // ALL four epi warps have parsed the response (a lagging warp
     // would otherwise read a refilled slot -- observed as a hang on
-    // multi-grab NTC128 CLC shapes, log sec 46). Fetch without
+    // multi-grab NTC128 CLC shapes). Fetch without
     // release, bar-sync the epi warps, then release.
     wp_begin(wpc, WP_CLC_FETCH);
     ClcTileInfo next = clc_fetch_next_tile<
@@ -1671,7 +1668,7 @@ void k1_epi_ntiles_clc256(WpCtx& wpc,
     // per-sub lockstep, so warp 4 must not release the CLC slot until
     // ALL four epi warps have parsed the response (a lagging warp
     // would otherwise read a refilled slot -- observed as a hang on
-    // multi-grab NTC128 CLC shapes, log sec 46). Fetch without
+    // multi-grab NTC128 CLC shapes). Fetch without
     // release, bar-sync the epi warps, then release.
     wp_begin(wpc, WP_CLC_FETCH);
     ClcTileInfo next = clc_fetch_next_tile<
@@ -1959,7 +1956,7 @@ dense_gemm_nvfp4_k1_impl(
     if constexpr (NTC == 256) {
       // 8 = lane 0 of each epi warp, both CTAs. Fewer arrivals on the
       // window-release path = less mbarrier traffic on the MMA's
-      // critical wake (was 256 = every epi thread; log sec 51).
+      // critical wake (was 256 = every epi thread).
       for (int i = 0; i < 2; ++i)
         mbarrier_init(smem_ptr_u32(&ovl_free[i]), 8);
     }
@@ -2046,7 +2043,7 @@ dense_gemm_nvfp4_k1_impl(
             peer, warp, lane, tmem_slot, run_len);
       } else {
         // The shared-block epi stores 128-high from warp 4 only; tmap_d
-        // is now a 32-high per-warp box (log sec 46), so route plain CLC
+        // is now a 32-high per-warp box, so route plain CLC
         // through the runclc wrapper with run_len=1 (identical consume
         // mechanics, per-warp earlyrelease drain).
         k1_epi_ntiles_runclc<
@@ -2113,7 +2110,7 @@ dense_gemm_nvfp4_k1_impl(
         if (t == 0 && fprobe_w0) atomicAdd(&g_fp_first, k1_gt());
         if (t == my_tiles - 1 && fprobe_w0) atomicAdd(&g_fp_lastc, k1_gt());
 #endif
-        // PDL gate point (host-chosen, log sec 55). gate_early: open at
+        // PDL gate point (host-chosen). gate_early: open at
         // the FIRST tile -- freed SM pairs pick up next-launch CTAs
         // continuously, amortizing wave quantization (K=2048 rows
         // +2-7%). Otherwise open at the LAST tile: big blocked rows
@@ -2214,7 +2211,7 @@ dense_gemm_nvfp4_k1_impl(
         // already holds byte-identical A (and SFA), skip those loads.
         // Ping-pong K reuse: legal for any K_BLOCKS % NS == 0 (round-0
         // A/SFA are resident from the previous same-m tile; the full
-        // KB == NS skip is the degenerate case). See log sec 37.
+        // KB == NS skip is the degenerate case).
         const bool pp_reuse = M_RUN && (K_BLOCKS_T % NS == 0)
                               && (m_tile == prev_m_tile);
         const bool pp_backward = pp_reuse && !prev_pp_backward;
@@ -2239,7 +2236,7 @@ dense_gemm_nvfp4_k1_impl(
           // skip tiles -- only meaningful when skip can occur at all.
           // Without M-RUN reuse the per-stage empty_a handshake fully
           // orders reloads, and these tile-granular waits would drain
-          // the pipe at EVERY boundary (~1 us/tile, log sec 37).
+          // the pipe at EVERY boundary (~1 us/tile).
           const bool any_skip = M_RUN && (K_BLOCKS_T % NS == 0);
           if (any_skip) {
             // Suspend form: this warp is lag-locked to the MMA across
@@ -2655,7 +2652,7 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
                                CU_TENSOR_MAP_DATA_TYPE_UINT8,
                                CU_TENSOR_MAP_SWIZZLE_128B));
   // NTC=128: box height 32 -- each epi warp stores its own 32-row slice
-  // with its own TMA chain (per-warp store pipeline, log sec 46).
+  // with its own TMA chain (per-warp store pipeline).
   // NTC=256: the classic 128-high warp-4-issued store (per-warp stores
   // cost the deep-K rows ~0.5pp in extra TMA-store requests).
   CUDA_CHECK(make_tma_2d_tiled(&tmap_d, dD, M, N,
@@ -2739,7 +2736,7 @@ static double run_one_k1(int M, int N, bool verify = false, int run_len = 0,
   config.attrs    = attrs;
   config.numAttrs = 2;
 
-  // Early PDL gate for short-K rows (measured, log sec 55): the win is
+  // Early PDL gate for short-K rows (measured): the win is
   // cross-launch wave-quantization amortization; the loss cases are big
   // blocked rows whose two co-resident block regions thrash L2.
   const int gate_early =
@@ -3094,7 +3091,7 @@ static double k1_blocked128(int M, int N, int K) {
 template <int BM, int BN>
 static double k1_blocked256(int M, int N, int K) {
   // NS_A=6 / NS_B=6 (12 stages, SMEM max): +4.5pp on big rows vs the
-  // sec-37 (5,6) split -- see log sec 44. (7,6)/(6,7) do not fit.
+  // (5,6) split. (7,6)/(6,7) do not fit.
   switch (K) {
     case  4096: return run_one_k1<16, 256, 6, ClcRasterOrder::AlongN, true, BM, BN, 2, false, 6>(M, N);
     case  8192: return run_one_k1<32, 256, 6, ClcRasterOrder::AlongN, true, BM, BN, 2, false, 6>(M, N);
@@ -3142,9 +3139,9 @@ static double k1_blocked_best(int M, int N, int K, const char** label) {
     upd(k1_blocked256<16,  8>(M, N, K), "BLK256 A66 bm%d bn%d", 16,  8);
     upd(k1_blocked256<16, 16>(M, N, K), "BLK256 A66 bm%d bn%d", 16, 16);
     // A-heavy narrow-N rows (B is L2-resident): a deeper A ring beats
-    // the balanced split (gen-o-4M 86.4 -> 87.4, log sec 44). With the
+    // the balanced split (gen-o-4M 86.4 -> 87.4). With the
     // hoisted window wait the maximal (8,4) split wins outright
-    // (gen-o 85.1, gen-o-4M 90.3, log sec 51).
+    // (gen-o 85.1, gen-o-4M 90.3).
     if (N <= 2048 && (K == 4096 || K == 8192)) {
       upd(k1_blocked256_ns< 8, 8, 7, 5>(M, N, K), "BLK256 A75 bm%d bn%d", 8, 8);
       upd(k1_blocked256_ns< 8, 8, 8, 4>(M, N, K), "BLK256 A84 bm%d bn%d", 8, 8);

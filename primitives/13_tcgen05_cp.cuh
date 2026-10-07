@@ -15,7 +15,6 @@
 //
 // The source is a 64-bit SMEM matrix descriptor, not a plain SMEM address.
 // Use #42 smem_desc_blackwell to construct it.
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.9.2 (tcgen05.cp), 9.7.18.9.1 (Optional Decompression)
 //
 #include <cstdint>

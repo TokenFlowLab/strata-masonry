@@ -22,7 +22,6 @@
 //     stage's SMEM reads, else load may overwrite mid-MMA
 //
 // Issuer: warp-group (128 threads) -- the MMA consumer.
-// Source: knowledge/building_blocks/mma_warp.md
 // PTX:    9.7.17.5 (wgmma.mma_async), 9.7.17.7 (fence/commit/wait)
 //
 #include <cstdint>

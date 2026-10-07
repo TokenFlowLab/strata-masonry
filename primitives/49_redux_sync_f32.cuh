@@ -7,7 +7,6 @@
 // Floating-point warp reduction (min / max), with optional absolute-value
 // and NaN-propagation modifiers. Introduced on Blackwell (SM100+). Used
 // in FMHA online softmax to compute the running max across a warp.
-// Source: knowledge/instructions/reduce/redux_sync.md
 // PTX:    9.7.15.13 (redux.sync, FP32 + .NaN modifiers)
 //
 #include <cstdint>

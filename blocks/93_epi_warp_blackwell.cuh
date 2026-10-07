@@ -18,7 +18,6 @@
 // Issuer: 1 CTA, 32 threads (one warp; epi_subtile_blackwell_fp16 is a
 // warp-collective stmatrix helper).
 
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.18.8 (tcgen05.ld), 9.7.10.24 (cvt), 9.7.16.5.16 (stmatrix), 9.7.10.28.5.3 (TMA store)
 //
 #include <cstdint>
@@ -164,8 +163,7 @@ void epi_warp_blackwell_block(WpCtx& wpc,uint32_t* slot,
  *   m_offset, n_offset_d
  *     GMEM output coords for the current tile.
  *
- * Source: knowledge/building_blocks/epi_warp.md sec 6.2
- *         (1SM vs 2SM; TMEM bank stride = N_TILE_CLUSTER, <= 256).
+ * Notes:  TMEM bank stride = N_TILE_CLUSTER, <= 256.
  * PTX:    9.7.18.8.x   (tcgen05.ld + tcgen05.wait::ld),
  *         9.7.10.24     (cvt.rn.bf16x2.f32),
  *         9.7.10.28.5.3 (cp.async.bulk.tensor.2d -- TMA store),
@@ -364,10 +362,6 @@ void epi_warp_blackwell_1tile_1sm2sm_bf16(WpCtx& wpc,
  *   Full layout: e0 -> idx 0..5 (5 full + 1 tail), e1 -> idx 6..9 (3+1).
  *   Phase-1:     e0 -> p1 0..4,                    e1 -> p1 5..7.
  *   m_tile_remap[0..7] = {0,1,2,3,4, 6,7,8}    (skip idx 5: e0's tail).
- *
- * See: knowledge/kernels/grouped_gemm.md for the full layout
- * conventions, the 2-phase tail handler motivation, and the two idx
- * spaces this remap reconciles.
  * ============================================================================ */
 // Raster-templated overload: caller picks (CLUSTER_SHAPE_M, CLUSTER_SHAPE_N,
 // ORDER) for the CLC decode. Defaults match the un-templated form
@@ -463,7 +457,7 @@ void epi_warp_blackwell_ntiles_2sm_bf16(WpCtx& wpc,
  * `_1tile_1sm2sm_bf16` only in the per-row pack inner loop and the
  * SMEM / TMA-store col stride.
  *
- * B is laid out per `grouped_gemm.md` §6.6: column-by-column interleave
+ * B is laid out as a column-by-column interleave
  * with even col = up, odd col = gate. The MMA accumulator therefore
  * arrives in TMEM with the same parity: TMEM col 2n = up_n,
  * 2n+1 = gate_n. Per (m, n_out) output position, fuse:
@@ -483,8 +477,6 @@ void epi_warp_blackwell_ntiles_2sm_bf16(WpCtx& wpc,
  *   - Building D's TMA tensormap with width = post-SwiGLU N (= half
  *     of pre-SwiGLU N).
  *
- * Source: knowledge/kernels/grouped_gemm.md §6 (gated-act
- *         epi fusion, 1-col interleave variant; "M3" there).
  * PTX:    9.7.18.8.x   (tcgen05.ld + tcgen05.wait::ld),
  *         9.7.10.24     (cvt.rn.bf16x2.f32),
  *         9.7.10.28.5.3 (cp.async.bulk.tensor.2d -- TMA store).
@@ -585,9 +577,9 @@ void epi_warp_blackwell_1tile_1sm2sm_bf16_swiglu(WpCtx& wpc,
       const float gate0 = __int_as_float(regs[j + 1]);
       const float up1   = __int_as_float(regs[j + 2]);
       const float gate1 = __int_as_float(regs[j + 3]);
-      // SwiGLU = silu(gate) * up. Tanh-based silu (composite 108)
+      // SwiGLU = silu(gate) * up. Tanh-based silu (composite 130)
       // avoids the __expf overflow-to-Inf intermediate that bites
-      // on large accumulator magnitudes (see tanh.md sec 7).
+      // on large accumulator magnitudes.
       const float out0 = swiglu_act_f32(gate0, up0);
       const float out1 = swiglu_act_f32(gate1, up1);
       d_row_u32[j >> 2] = cvt_pack_f32_to_bf16x2(out0, out1);
@@ -706,9 +698,9 @@ void epi_warp_blackwell_ntiles_2sm_bf16_swiglu(WpCtx& wpc,
  *                                                EPI_SUB_COLS, EPI_NUM_BUFS>(wpc, ...)
  *
  * SwiGLU-fused 2SM BF16 epilogue, chunked variant (128-col chunk
- * pre-pack; "M2" in grouped_gemm.md).
+ * pre-pack; "M2").
  *
- * B layout per `grouped_gemm.md` §6.5 ("M2"): within each 256-wide
+ * B layout ("M2"): within each 256-wide
  * N-tile, cols 0..127 are up and cols 128..255 are gate. The MMA
  * accumulator therefore arrives in TMEM with the same split: TMEM cols
  * [0, N_TILE_CLUSTER/2) = up, [N_TILE_CLUSTER/2, N_TILE_CLUSTER) = gate.
@@ -998,8 +990,7 @@ void epi_warp_blackwell_ntiles_1sm_bf16(WpCtx& wpc,
 /* ============================================================================
  * epi_warp_blackwell_1tile_1sm2sm_bf16_swiglu_interleaved<...>(wpc, ...)
  *
- * SwiGLU-fused 2SM/1SM BF16 epilogue, M3 1-col interleaved variant
- * (grouped_gemm.md §6.6).
+ * SwiGLU-fused 2SM/1SM BF16 epilogue, M3 1-col interleaved variant.
  *
  * B layout: per N-tile, columns alternate up/gate. Pack convention is
  * up = even col, gate = odd col (matches trtllm-gen
@@ -1026,9 +1017,6 @@ void epi_warp_blackwell_ntiles_1sm_bf16(WpCtx& wpc,
  *     2 * EPI_SUB_COLS in {2,4,8,16,32,64,128} => EPI_SUB_COLS in
  *     {1,2,4,8,16,32,64}. EPI_SUB_COLS must also be even (cvt pair pack).
  *   - (N_TILE_CLUSTER / 2) % EPI_SUB_COLS == 0 (sub count is integer).
- *
- * Source: grouped_gemm.md §6.5 (3 SMEM strategies), §6.6 (M3 design),
- *         §6.7 (per-warp changes for M3).
  * ============================================================================ */
 template <int M_TILE_PER_CTA, int N_TILE_CLUSTER, int EPI_SUB_COLS, int EPI_NUM_BUFS,
           bool DRAIN_PER_TILE = true>
@@ -1223,8 +1211,6 @@ void epi_warp_blackwell_ntiles_1sm_bf16_swiglu_interleaved(WpCtx& wpc,
  * per-CTA n-offset arithmetic. Only the per-tile body differs --
  * delegates to `_1tile_1sm2sm_bf16_swiglu_interleaved` (the M3 helper).
  * Output stride is N_TILE_CLUSTER / 2 (post-SwiGLU width).
- *
- * Source: knowledge/kernels/grouped_gemm.md §6.6 (M3 design).
  * ============================================================================ */
 template <int M_TILE_PER_CTA, int N_TILE_PER_CTA, int K_TILE,
           int M_TILE_CLUSTER, int N_TILE_CLUSTER,
@@ -1367,10 +1353,6 @@ void epi_warp_blackwell_ntiles_1sm_bf16_swiglu_chunked(WpCtx& wpc,
  *   - Cluster shape defaults to 1x1.
  *
  * Caller invokes from ALL 32 lanes of warps 4-7 (128 threads).
- *
- * Source: knowledge/kernels/grouped_gemm.md sec 4.5.2
- *         (phase-2 v2 -- CLC scheduler + tail_m_offset lookup).
- *         knowledge/building_blocks/epi_warp.md sec 6.2 (1SM vs 2SM).
  * ============================================================================ */
 template <int M_TILE_PER_CTA, int N_TILE_PER_CTA,
           int EPI_SUB_COLS, int EPI_NUM_BUFS,

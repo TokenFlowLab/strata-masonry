@@ -8,7 +8,7 @@
 // Used by Hopper warp-specialized GEMMs (pre-CLC) and as a fallback on
 // Blackwell. On Blackwell, prefer block #97 (CLC try_cancel).
 //
-// Block functions (per code/PLAN.md "Block function signature contract"):
+// Block functions:
 //
 //   __device__ __forceinline__ void
 //   sched_warp_persistent_block(int total_tiles, int tiles_m, int tiles_n,
@@ -31,7 +31,6 @@
 // shouldn't participate; this block self-gates on threadIdx.x == 0.
 //
 // Composes primitive 50 (atom_global_add_u32) + composite 82 (rasterize_*).
-// Source: knowledge/building_blocks/sched_warp.md
 // PTX:    9.7.15.5 (atom.global.add for persistent counter)
 
 #include <cstdint>

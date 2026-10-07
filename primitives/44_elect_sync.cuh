@@ -9,7 +9,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/warp/elect_sync.md
 // PTX:    9.7.15.15 (elect.sync)
 //
 #include <cstdint>

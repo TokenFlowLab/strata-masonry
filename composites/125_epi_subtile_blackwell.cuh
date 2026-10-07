@@ -7,7 +7,6 @@
 // One sub-tile of the Blackwell epilogue: read FP32 regs from TMEM via
 // tcgen05.ld.16x256b.x1 (4 regs/lane), convert pairs to packed FP16/BF16,
 // stmatrix.x1 each packed reg into SMEM.
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.18.8.3 (tcgen05.ld), 9.7.10.24 (cvt), 9.7.16.5.16 (stmatrix)
 //
 #include <cstdint>

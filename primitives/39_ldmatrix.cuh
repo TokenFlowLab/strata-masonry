@@ -16,7 +16,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/smem/ldmatrix.md
 // PTX:    9.7.16.5.15 (ldmatrix)
 //
 #include <cstdint>

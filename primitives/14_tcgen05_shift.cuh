@@ -9,7 +9,6 @@
 //
 // Single-thread issued; cta_group::2 shifts this and the peer CTA's TMEM.
 // taddr lane must be 32-aligned. Completion via tcgen05.commit + mbarrier.
-// Source: knowledge/instructions/tmem/tcgen05_tmem.md
 // PTX:    9.7.18.9.3 (tcgen05.shift)
 //
 #include <cstdint>

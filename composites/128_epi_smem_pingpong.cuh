@@ -14,7 +14,6 @@
 
 #pragma once
 
-// Source: knowledge/building_blocks/epi_warp.md
 // PTX:    9.7.10.28.5.3 (TMA store), 9.7.15.1 (bar.sync), 9.7.15.4 (fence.proxy.async)
 //
 #include <cstdint>

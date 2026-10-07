@@ -12,7 +12,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/copy/cp_async.md
 // PTX:    9.7.10.28.3.2 (cp.async.commit_group), 9.7.10.28.3.3 (cp.async.wait_group)
 //
 #include <cstdint>

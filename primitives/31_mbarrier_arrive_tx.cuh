@@ -13,7 +13,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/barrier/mbarrier.md
 // PTX:    9.7.15.16.14 (mbarrier.expect_tx)
 //
 #include <cstdint>

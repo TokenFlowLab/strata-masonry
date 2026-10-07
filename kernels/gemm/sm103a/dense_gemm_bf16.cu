@@ -228,8 +228,8 @@ dense_gemm_bf16_k3_impl(
 
   // TMEM teardown (acc_empty drain + tmem_dealloc_bar handshake +
   // tcgen05.relinquish + tcgen05.dealloc<2>) is encapsulated in the
-  // mma_warp_blackwell_ntiles_2sm_bf16 helper above (mma_warp.md
-  // sec 6). EPI's per-tile cp.async.bulk.wait_group<0> drains TMA
+  // mma_warp_blackwell_ntiles_2sm_bf16 helper above. EPI's per-tile
+  // cp.async.bulk.wait_group<0> drains TMA
   // stores at every tile boundary; no kernel-level defensive drain
   // needed here.
   //
@@ -470,8 +470,7 @@ int main(int argc, char** argv) {
          g_fill_mode, fill_mode_label(g_fill_mode));
   printf("=============================================\n");
 
-  // V0 shape inventory per books/code/kernels/problem_size.md
-  // (Cosmos3 256GPU iter 5000, Qwen3-VL-30B-A3B-Instruct).
+  // V0 shape inventory (Cosmos3 256GPU iter 5000, Qwen3-VL-30B-A3B-Instruct).
   // Format: (label, M, K, N).
   //
   // UND shapes have production M=14046 which is not a multiple of
@@ -487,7 +486,7 @@ int main(int argc, char** argv) {
       { "gen-o",    30720, 4096, 2048 },
   };
 
-  printf("\n[V0 shape inventory -- problem_size.md]\n");
+  printf("\n[V0 shape inventory]\n");
   for (const auto& s : v0_shapes) {
     printf("\n[%s]\n", s.label);
     printf("  AlongN:\n");

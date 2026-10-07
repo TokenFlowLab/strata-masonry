@@ -18,7 +18,6 @@
 
 #pragma once
 
-// Source: knowledge/instructions/tma/tma_load.md (multicast + gather4)
 // PTX:    9.7.10.28.5.3 (cp.async.bulk.tensor; .tile::gather4 + .multicast::cluster)
 // CUTLASS: cute/arch/copy_sm100_tma.hpp:SM100_TMA_LOAD_MULTICAST_2D_GATHER4
 //

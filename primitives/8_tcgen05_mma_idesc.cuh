@@ -34,7 +34,6 @@
 //
 // Issuer: host code or any device thread; the builders are pure bit math
 // (constexpr-friendly).
-// Source: knowledge/instructions/mma/tcgen05_mma.md
 // PTX:    9.7.18.4.2 Tables 53-55 (idesc per kind)
 //
 #include <cstdint>
