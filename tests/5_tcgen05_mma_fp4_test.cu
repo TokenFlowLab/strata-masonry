@@ -9,8 +9,9 @@
 // scale factors, issuing the MMA with zero descriptors, committing,
 // waiting, and deallocating completes without hang. End-to-end FP4 GEMM
 // correctness lives at the block level (#90, #100, #91 for the K=96
-// 3xFP4 variant). Cross-block-size and TS variants are separately
-// exercised by _extended_coverage_probe_test.
+// 3xFP4 variant). The 1SM TS, sparse, .block16 and .block32 forms are
+// smoke-tested here too; the 2SM mxf4nvf4 .block32 form is compile-checked
+// by _extended_coverage_probe_test.
 //
 // PTX sniff: `cuobjdump --dump-ptx build/5_tcgen05_mma_fp4_test |
 // grep -E 'tcgen05.mma.cta_group::1.kind::mxf4(nvf4)?'` should show the

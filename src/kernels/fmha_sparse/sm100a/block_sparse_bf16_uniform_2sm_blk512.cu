@@ -458,8 +458,7 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
   else if (warp_id == W_MMA) {
     // MMA warp: owns the TMEM lifetime (alloc before the dispatch, dealloc after it) and issues the
     // joint cta_group::2 MMAs on peer 0; peer 1 runs the same loop as an idle CLC consumer for
-    // count-balance. The per-work-item body is INLINED below instead of calling blocks/111, which
-    // assumes ONE shared K/V stream (see the file header).
+    // count-balance. The per-work-item body is INLINED below instead of calling blocks/111.
     setmaxnreg_dec<72>();
     constexpr int M_TILE_CLUSTER = JOINT_M;      // joint cta_group::2 MMA M-dim (256) = half a 512-block
     // MMA-local geometry.
@@ -472,9 +471,8 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
     constexpr uint64_t SUB_DESC_DELTA_KV  = (uint64_t)(Q_SUB_COLS_BYTES / 2) >> 4;   // K/V hd subtile (8KB, half-box)
     constexpr uint64_t Q_MTILE_DESC_DELTA = (uint64_t)(Q_SUBTILES * Q_SUB_COLS_BYTES) >> 4;
 
-    // tmem_base is already published: warp 0 alloc'd it and the __syncthreads() + cluster barrier
-    // before the warp dispatch made it visible. No entry rendezvous needed (barrier 9 stays a purely
-    // SYMMETRIC teardown sync -- mixing bar_arrive with bar_sync on one id is a real barrier defect).
+    // tmem_base is already published: this warp alloc'd it before the __syncthreads() + cluster
+    // barrier that precede the warp dispatch, so no entry rendezvous is needed.
     const uint32_t tmem_base = *tmem_slot;
     PhaseTracker<1> spo_ph;   // shared by the peer-0 MMA loop and the tail empty_bar_spo drain
 
@@ -708,7 +706,7 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
   else if (warp_id >= W_CORR0 && warp_id < W_MMA) {
     // Correction warps: blocks/99 per-work-item body reused verbatim (USE_2CTA routing). Its
     // K_TILES must be nkv * KTILES_PER_BLOCK -- corr consumes one alpha/l per K-TILE, not per
-    // selected 256-block (a mismatch there deadlocks softmax on empty_bar_alpha_and_l).
+    // selected 512-block (a mismatch there deadlocks softmax on empty_bar_alpha_and_l).
     setmaxnreg_dec<88>();
     const int corr_warp_id = warp_id - W_CORR0;
 
@@ -733,7 +731,7 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
 
       correction_warp_blackwell_1tile_1sm2sm_bf16_fmha<
           M_TILE, M_TILES_PER_CTA, HEAD_DIM, K_TILE, SUB_COLS_BF16, FULL_NAMED_BAR, SOFTMAX_THROTTLE,
-          // blk256: one selected 256-block = KTILES_PER_BLOCK K-tiles, and corr consumes one
+          // one selected 512-block = KTILES_PER_BLOCK K-tiles, and corr consumes one
           // alpha/l per K-tile -- must match the softmax/MMA trip count exactly or the pipeline hangs.
           /*USE_2CTA=*/true>(wpc, tmem_base, corr_warp_id, lane, /*K_TILES=*/it.nkv * KTILES_PER_BLOCK, alpha_and_l_smem, sO_bufs,
           full_bar_alpha, full_bar_l, full_bar_o_acc, full_bar_o_epi,
@@ -754,8 +752,8 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
   }
   else {
     // Softmax warps (inlined blocks/98 2SM variant). Warp band: m_tile = warp_id / 4, 32 rows at
-    // warp_in_group * 32. Every K-tile is a real one: each M-tile rides only its OWN 256-block list,
-    // so there is no membership skip, and no column mask either (selected blocks are full and the
+    // warp_in_group * 32. Every K-tile is a real one: both M-tiles ride the cluster's ONE 512-block
+    // list, so there is no membership skip, and no column mask either (selected blocks are full and the
     // attention is non-causal). Trip count is nkv * KTILES_PER_BLOCK.
     setmaxnreg_inc<176>();
 
@@ -935,8 +933,8 @@ fmha_context_bf16_vsa_2sm_kernel(const __grid_constant__ CUtensorMap tmap_q,
 
 // ============================== driver ====================================
 
-// CPU reference: VSA fine block-sparse attention in fp32, over the per-256-block top-k lists
-// (q and k blocks are both SPARSE_BLOCK wide). Same math as the 1CTA blk256 VSA's cpu_vsa_ref.
+// CPU reference: VSA fine block-sparse attention in fp32, over the per-512-block top-k lists
+// (q and k blocks are both SPARSE_BLOCK wide).
 // Layout: Q/K/V natural
 // [token, head, hd]; token = b*S + local. gqb = (b*H+h)*nb + qblk.
 static void cpu_vsa_ref(const __nv_bfloat16* hQ, const __nv_bfloat16* hK,
@@ -1003,7 +1001,7 @@ struct Sh { int B, H, nb, topk, hd; const char* lab; };
 
 static double run(const Sh& sh, bool verify) {
   const int  B = sh.B, H = sh.H, nb = sh.nb, topk = sh.topk, hd = sh.hd;
-  const int  S = nb * SPARSE_BLOCK;                // seqlen; nb = number of 256-token sparse blocks
+  const int  S = nb * SPARSE_BLOCK;                // seqlen; nb = number of 512-token sparse blocks
   const int  max_kv = topk;                        // tight: exactly topk selected blocks
   const long tq = (long)B * S;                     // total tokens
   const int  clusters_per_seq = nb;                // a CLUSTER does exactly ONE 512-block (its 2 joint M-tiles)
@@ -1048,8 +1046,8 @@ static double run(const Sh& sh, bool verify) {
   CUDA_CHECK(cudaMemcpy(dVT, hVT.data(), hVT.size() * 2, cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemset(dO, 0, hQ.size() * 2));
 
-  // ---- q2k index: topk DISTINCT 256-block ids per (b,h,256-block), fixed density ----
-  // One list per 256 sparse block; BOTH peers of a joint M-tile read the SAME list, so there is no
+  // ---- q2k index: topk DISTINCT 512-block ids per (b,h,512-block), fixed density ----
+  // One list per 512 sparse block; the whole cluster reads the SAME list, so there is no
   // union and no membership mask.
   std::vector<int> hq2k_idx((size_t)total_qblk * max_kv, 0);
   std::vector<int> hq2k_num(total_qblk, topk);
@@ -1168,7 +1166,7 @@ static double run(const Sh& sh, bool verify) {
   }
 #endif
 
-  // blk256 has NO union inflation (both peers of a joint M-tile share one 256-block list),
+  // blk512 has NO union inflation (the whole cluster shares one 512-block list),
   // so visited == selected and one TFLOPS number says it all.
   const double sel_pairs = (double)B * H * nb * SPARSE_BLOCK * (double)topk * SPARSE_BLOCK;
   const double tflops_sel = block_sparse_bf16_benchmark::tflops(sel_pairs, hd, ms);

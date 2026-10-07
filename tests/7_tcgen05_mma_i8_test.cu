@@ -8,8 +8,8 @@
 // bit 3), and (2) a kernel allocating TMEM, issuing the MMA with zero
 // descriptors, committing, waiting, and deallocating completes without
 // hang. End-to-end INT8 GEMM correctness lives at the block level
-// (#90, #100). The TS forms are separately exercised by
-// _extended_coverage_probe_test.
+// (#90, #100). The 1SM TS and sparse forms are smoke-tested here too; the
+// 2SM TS form is compile-checked by _extended_coverage_probe_test.
 //
 // PTX sniff: `cuobjdump --dump-ptx build/7_tcgen05_mma_i8_test |
 // grep -E 'tcgen05.mma.cta_group::1.kind::i8'` should show the issue.

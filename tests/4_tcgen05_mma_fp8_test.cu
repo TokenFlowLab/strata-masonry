@@ -7,9 +7,9 @@
 // encoding for E4M3 / E5M2 / E2M3 / E3M2 / E2M1 atype-btype), and (2) a
 // kernel allocating TMEM, issuing the MMA with zero descriptors,
 // committing, waiting, and deallocating completes without hang. End-to-end
-// correctness (real FP8 GEMM) lives at the block level (#90, #100). The
-// block-scaled .kind::mxf8f6f4 wrappers + the TS forms are separately
-// exercised by _extended_coverage_probe_test.
+// correctness (real FP8 GEMM) lives at the block level (#90, #100). The 1SM
+// TS, sparse and .kind::mxf8f6f4 forms are smoke-tested here too; their 2SM
+// TS / mxf8f6f4 forms are compile-checked by _extended_coverage_probe_test.
 //
 // PTX sniff: `cuobjdump --dump-ptx build/4_tcgen05_mma_fp8_test |
 // grep -E 'tcgen05.mma.cta_group::1.kind::f8f6f4'` should show the issue.
