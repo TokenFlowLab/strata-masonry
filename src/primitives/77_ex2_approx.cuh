@@ -50,8 +50,8 @@ __device__ __forceinline__ float ex2_approx_f32(float z) {
 
 // -- Packed 2x ex2 EMULATION (no MUFU) --------------------------------------
 
-// (ox, oy) = (2^x, 2^y), computed on the f32x2 ALU pipe. See header for the
-// algorithm; this is a verbatim port of flash-attention utils.e2e_asm2.
+// (ox, oy) = (2^x, 2^y), computed on the f32x2 ALU pipe. Adapted from flash-attention
+// (flash_attn/cute/utils.py e2e_asm2, BSD-3-Clause); see THIRD_PARTY_NOTICES.md.
 __device__ __forceinline__ float2 ex2_emu_f32x2(float x, float y) {
   uint32_t ox, oy;
   asm volatile(
