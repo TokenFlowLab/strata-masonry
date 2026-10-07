@@ -2,11 +2,9 @@
 
 | Implementation | Block size |
 |---|---|
-| [block_sparse_bwd_bf16.cu](block_sparse_bwd_bf16.cu) | 64 or 128 (`BLOCK`), union form |
 | [block_sparse_bwd_bf16_blk64.cu](block_sparse_bwd_bf16_blk64.cu) | 64, one pass |
 | [block_sparse_bwd_bf16_blk64_2pv.cu](block_sparse_bwd_bf16_blk64_2pv.cu) | 64, two passes |
 | [block_sparse_bwd_bf16_blk128.cu](block_sparse_bwd_bf16_blk128.cu) | 128 |
-| [block_sparse_bwd_bf16_blk128_2sm.cu](block_sparse_bwd_bf16_blk128_2sm.cu) | 128, 2SM |
 | [block_sparse_bwd_bf16_blk256.cu](block_sparse_bwd_bf16_blk256.cu) | 256 |
 
 CPU reference: [block_sparse_bwd_bf16_cpu_verifier.py](block_sparse_bwd_bf16_cpu_verifier.py).
@@ -68,15 +66,13 @@ FP32 accumulation, Delta from the saved BF16 O, BF16-rounded P for dV and BF16-r
 dQ/dK. Default tolerance `abs(actual - expected) <= 0.002 + 0.02 * abs(expected)`; dQ/dK/dV are
 reported separately; NaN/Inf fails. `--mode sampled --samples 64` checks 64 `(token, head)` rows
 and is reported as sampled. Exit codes: 0 pass, 1 mismatch, 2 invalid input.
-`block_sparse_bwd_bf16.cu` dumps dQ in FP32 decoded from its accumulator.
 
 ## Benchmark
 
 [block_sparse_bwd_bf16_benchmark.cuh](block_sparse_bwd_bf16_benchmark.cuh) times each complete
 backward invocation (preprocess, main including both passes for 2pv, postprocess) with CUDA events
 and reports the upper median. `BENCH_WARMUP` (default 10) and `BENCH_ITERS` (default 50) set the
-counts; `NO_BENCHMARK=1` skips timing. Buffers are reused (L2-warm). `block_sparse_bwd_bf16.cu`
-times memset + preprocess + main only, so its latency is not the same scope.
+counts; `NO_BENCHMARK=1` skips timing. Buffers are reused (L2-warm).
 
 ```text
 selected_pairs = B * H * num_blocks * topk * block_size^2
@@ -99,4 +95,4 @@ LOAD_NPY=inputs SHAPE=0 BATCH=1 HEADS=8 NB=32 TOPK=8 CPU_REF=0 BENCH_WARMUP=10 B
 ```
 
 For other cases set `NB = S / block_size`, `TOPK = NB / 4` and pick the matching binary
-(`BLOCK=64` for the union and 2pv drivers).
+(`BLOCK=64` for the 2pv driver).

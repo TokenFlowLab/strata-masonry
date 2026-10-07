@@ -2056,7 +2056,7 @@ void load_warp_blackwell_1tile_2sm_bf16_fmha(WpCtx& wpc,
  * load_warp_blackwell_ntiles_1sm2sm_bf16_fmha<>(wpc, ...)
  *
  * Production __device__ body for the LOAD warp of the Blackwell BF16 FMHA
- * context kernels (fmha_context_bf16_uniform.cu + _2sm.cu): persistent loop of
+ * context kernels (uniform seqlen, 1SM + 2SM): persistent loop of
  * decode_workitem (#110) + throttle producer, driven by CLC (#106) or grid-stride.
  *
  * CLUSTER_N selects the per-work-item 1tile body:

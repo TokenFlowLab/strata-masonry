@@ -1,12 +1,11 @@
 // block_sparse_bf16_uniform_2sm_blk512.cu -- VSA "fine" block-sparse FMHA, bf16, 2SM
 // (cta_group::2 cluster), 512-token sparse block, sm_100a.
 //
-// Forked from block_sparse_bf16_uniform_2sm_blk256.cu. Everything except the block geometry and
-// the K/V stream count is inherited: 16-warp warp-specialized body, BMM1-ahead software pipeline,
-// softmax<->correction<->MMA barrier contract, CLC persistent scheduling, split-P, TMA-store
-// epilogue, and the cta_group::2 specifics (joint 256-row MMA issued by peer 0, cross-CTA mbarrier
+// Shares the VSA kernels' 16-warp warp-specialized body, BMM1-ahead software pipeline,
+// softmax<->correction<->MMA barrier contract, CLC persistent scheduling, split-P and TMA-store
+// epilogue, plus the cta_group::2 specifics (joint 256-row MMA issued by peer 0, cross-CTA mbarrier
 // routing via mapa, cluster-collective TMEM alloc<2>, peer-1 idle CLC consumer, the teardown
-// contract below). 1CTA counterpart: sparse/block_sparse_bf16_uniform_blk512.cu.
+// contract below).
 //
 // WHY blk512 EXISTS -- and WHAT IT MEASURED (read this before "improving" it):
 //   K/V traffic scales as 1 / (query rows behind one gather). A 1CTA kernel is stuck at 256 rows per
@@ -27,7 +26,7 @@
 //     S        4K    8K    16K   32K   64K   131K
 //     this    910  1261  1306  1584  1616  1545
 //     1CTA b256  921  1250  1309  1586  1635  1445
-//   and it beats its own blk256 sibling everywhere. Pick per shape; neither is a clean default.
+//   Pick per shape; neither is a clean default.
 //
 // VSA design (fixed):
 //   - SPARSE_BLOCK = 512 tokens: the top-k selection granularity AND the query-block granularity
@@ -61,14 +60,13 @@
 //   2SM path (blocks/90). *tmem_slot is published by the __syncthreads() + cluster join that already
 //   precede the dispatch, so no entry rendezvous is needed. Teardown is wp_flush + __syncthreads()
 //   (this CTA is done with TMEM) + cluster join (the peer is too) + dealloc; leftover in-flight
-//   mbarrier arrives at kernel exit are harmless and are NOT drained. The blk128 2SM kernel instead
-//   used a 13-warp bar_arrive<9>/bar_sync<9> protocol plus closing primes and closed-form tail
-//   drains, which DEADLOCKED intermittently (a closing prime racing the MMA's epilogue waits) --
-//   fixed in both kernels.
+//   mbarrier arrives at kernel exit are harmless and are NOT drained. A 13-warp
+//   bar_arrive<9>/bar_sync<9> protocol plus closing primes and closed-form tail drains DEADLOCKED
+//   intermittently here (a closing prime racing the MMA's epilogue waits).
 //
 // Barrier contract, budgets (softmax inc<176> x8 + corr dec<88> x4 + singles dec<72> x4), TMEM
 // layout (S[i] at i*128, O[i] at 256 + i*128, 512 cols) and the EX2_EMU hybrid exp2 are as in
-// fmha_context_bf16_uniform_2sm.cu -- see its header. The blocks/98 P-publish wait_st race fix
+// fmha_context_bf16_uniform_2sm_inline.cu -- see its header. The blocks/98 P-publish wait_st race fix
 // is inherited: every P tcgen05.st is drained with tcgen05_wait_st() BEFORE the
 // cross-CTA empty_bar_spo / full_bar_p_last arrive.
 //

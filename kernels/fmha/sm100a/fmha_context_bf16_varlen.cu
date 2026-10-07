@@ -1,7 +1,7 @@
 // fmha_context_bf16_varlen.cu -- K2 FMHA context BF16, sm_100a. Variable-seqlen (varlen), causal.
 //
-// Persistent 16-warp context kernel, block-composed like fmha_context_bf16_uniform.cu: each warp
-// dispatches into shared blocks/ bodies. varlen packs samples densely by cu_seqlens, so three
+// Persistent 16-warp context kernel, block-composed: each warp dispatches into shared blocks/
+// bodies. varlen packs samples densely by cu_seqlens, so three
 // blocks are varlen-specific: decode_workitem_varlen (prefix-sum seqlens, ragged K_TILES, emits
 // seqlen_q), load (3D flat-global Q + k_base[] start), and corr (predicated STG re-tile O store
 // on the corr warps -- no TMA epi, so W_EPI idles). softmax + MMA reuse the shared ntiles wrappers

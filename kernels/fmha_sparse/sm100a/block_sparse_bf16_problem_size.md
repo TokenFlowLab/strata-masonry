@@ -3,10 +3,7 @@
 | Implementation | Block size |
 |---|---|
 | [block_sparse_bf16_uniform.cu](block_sparse_bf16_uniform.cu) | 64 (128 with `-DVSA_BLK128=true`) |
-| [block_sparse_bf16_uniform_2sm.cu](block_sparse_bf16_uniform_2sm.cu) | 128, 2SM |
 | [block_sparse_bf16_uniform_blk256.cu](block_sparse_bf16_uniform_blk256.cu) | 256 |
-| [block_sparse_bf16_uniform_2sm_blk256.cu](block_sparse_bf16_uniform_2sm_blk256.cu) | 256, 2SM |
-| [block_sparse_bf16_uniform_blk512.cu](block_sparse_bf16_uniform_blk512.cu) | 512 |
 | [block_sparse_bf16_uniform_2sm_blk512.cu](block_sparse_bf16_uniform_2sm_blk512.cu) | 512, 2SM |
 | [block_sparse_bf16_varlen.cu](block_sparse_bf16_varlen.cu) | 64 (128 with `-DVSA_BLK128=true`), variable block sizes |
 

@@ -1,13 +1,11 @@
-// fmha_context_bf16_uniform.cu -- K2 FMHA context BF16, sm_100a.
-//    
+// fmha_context_bf16_uniform_inline.cu -- K2 FMHA context BF16, sm_100a.
+//
 // ASSUMES (baked in -- the kernel is NOT correct otherwise):
 //   1. Full mask -- every q-token attends to all keys (only keys >= seqlen are masked). IS_CAUSAL
 //      adds the triangular mask + K-loop cap; still uniform (non-ragged) seqlen.
 //   2. ALL seqlens EQUAL (no varlen) -- one `seqlen` for every sample, so K_TILES is uniform.
 //
-// GEN-shape variant. The warp-specialized 16-warp kernel body + barrier contract are the SAME as
-// fmha_context_bf16_gqa_nonpersistent.cu (see that file's header for Terminology, Data Layout,
-// Execution flow, Barrier Contract, Memory Layout). Differences from those varlen kernels:
+// GEN-shape variant, warp-specialized 16-warp kernel body:
 //   - PERSISTENT scheduling, selected by USE_CLC (phase trackers persist across tiles, primed once):
 //       USE_CLC=true (default): CLC (clusterlaunchcontrol.try_cancel) HW work-stealing scheduler.
 //         w15 is a standalone sched warp issuing try_cancel into a CLC_STAGES-deep tile-id ring;
@@ -18,9 +16,9 @@
 //     no binary search.
 //   - TMA-store epilogue: correction packs O*=1/l into a subtile-split sO, then the epi warp (w13)
 //     TMA-stores it (full_bar_o_epi). Valid because equal-seqlen tiles are non-ragged;
-//     the varlen kernels use a predicated STG re-tile instead.
+//     the varlen kernel uses a predicated STG re-tile instead.
 //
-// Barrier contract (additions to gqa_nonpersistent's -- unique to the TMA-sO epilogue):
+// Barrier contract (unique to the TMA-sO epilogue):
 //   - empty_bar_o_epi[m] (count 1): epi -> corr, "sO[m]'s TMA store drained, slot reusable".
 //     epi arrives per m as its commit group drains; corr waits before packing the next tile's
 //     sO[m]. Without it, tiny causal K-loops (K_TILES=1) let corr's repack race the

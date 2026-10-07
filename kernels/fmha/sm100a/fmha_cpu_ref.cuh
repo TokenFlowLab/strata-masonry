@@ -1,5 +1,5 @@
 // fmha_cpu_ref.cuh -- host fp32 reference for the sm100a BF16 FMHA context kernels.
-// Shared by the six dense context drivers (uniform, inline, 2SM, varlen, nonpersistent).
+// Shared by the dense context drivers (uniform_inline, uniform_2sm_inline, varlen).
 #pragma once
 
 #include <cmath>

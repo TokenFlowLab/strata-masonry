@@ -1,8 +1,7 @@
 // block_sparse_bf16_varlen.cu -- VSA "fine" block-sparse FMHA with VARIABLE BLOCK SIZES
 // (the ragged/varlen VSA), bf16, sm_100a.
 //
-// Same kernel as block_sparse_bf16_uniform.cu (which is a direct port of
-// fmha_context_bf16_uniform.cu -- see its header for the full lineage: 16-warp warp-spec body,
+// Same kernel as block_sparse_bf16_uniform.cu (see its header for the full lineage: 16-warp warp-spec body,
 // BMM1-ahead pipeline, split-P, blk64 tcgen05.mma.ws Layout-E dual-pack / blk128 plain m128 via
 // the VSA_BLK128 toggle, CLC scheduling, TMA-store epilogue) PLUS variable_block_sizes:
 //
@@ -19,9 +18,9 @@
 // tail tokens are loaded but masked (exp2(-inf) = 0 -> P cols 0 -> V garbage never reaches O).
 // vbs[i] >= 1 is assumed (a fully-empty block would produce NaN rows; FastVideo never selects one).
 //
-// Barrier contract (additions to gqa_nonpersistent's -- unique to the TMA-sO epilogue):
+// Barrier contract (unique to the TMA-sO epilogue):
 //   - empty_bar_o_epi[m] (count 1): epi -> corr, "sO[m]'s TMA store drained, slot reusable" --
-//     see fmha_context_bf16_uniform.cu's header.
+//     see fmha_context_bf16_uniform_inline.cu's header.
 //
 // Budgets:
 //   - Registers: per-warp budgets sum to exactly the SM file (65536 = 128*512): softmax inc<192>
@@ -92,7 +91,7 @@
 //   half runs an independent online softmax; the two O partials merge in the correction epilogue.
 // VSA_BLK128=true ("blk128"): 128-token blocks. M=128 is the NATIVE full-datapath tcgen05.mma --
 //   plain instruction, K_TILE=128 (1 block/GEMM), no dual-pack, no half-merge: exactly the dense
-//   fmha_context_bf16_uniform.cu tiling (S/O = 4x128 TMEM cols) with the VSA block-id gather.
+//   fmha_context_bf16_uniform_inline.cu tiling (S/O = 4x128 TMEM cols) with the VSA block-id gather.
 #ifndef VSA_BLK128
 #define VSA_BLK128 false
 #endif
@@ -131,7 +130,7 @@ constexpr int Q_SUB_COLS_BYTES = M_TILE * SUB_COLS_BYTES;         // Q subtile s
 //     planes of all 4 blocks; V = 2 within-half token planes), so the MMA starts on plane 0 while
 //     plane 1's TMA is still landing.
 //   blk128: a K or V tile = ONE slot (K: 1 block x 128 hd = 2 hd-atoms in-slot; V: 2 token-atoms
-//     in-slot) -- the dense uniform.cu tile shape.
+//     in-slot) -- the dense uniform_inline.cu tile shape.
 constexpr int SLOT_BYTES = 32 * 1024;
 constexpr int SLOTS_PER_TILE = BLK128 ? 1 : 2;      // ring slots consumed per K (or V) group
 constexpr int BLK_SUB_BYTES = BLOCK * SUB_COLS_BYTES;    // one block's tokens within a K hd-atom

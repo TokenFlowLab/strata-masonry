@@ -40,7 +40,7 @@ void correction_warp_block(uint32_t tmem_addr, float factor) {
 }
 
 // ============================================================================
-// Production FMHA correction warp (kernels/fmha/sm100a/fmha_context_bf16_uniform.cu).
+// Production FMHA correction warp (kernels/fmha/sm100a/fmha_context_bf16_varlen.cu).
 // Owns the online-softmax O rescale + final epilogue for a 32-row band:
 //   per K block, read alpha (softmax) and rescale the running O accumulator in
 //   TMEM (LDTM -> FMUL2 -> STTM, x16 chunks); at the end, O *= 1/l -> bf16 ->

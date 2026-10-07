@@ -173,7 +173,7 @@ constexpr int Q_TILE_BYTES = Q_SUBTILES * Q_SUB_COLS_BYTES;     // blk64 16 KB, 
 //         head-dim half. (256 keys = 4 KV blocks of 64 tokens.)
 //       V-tile (128 hd x 256 tok): split by tokens -- each slot = full 128 hd x one 128-token
 //         half (= 2 KV blocks of 64 tok, one per kv-half).
-//   blk128: a K-tile or V-tile is exactly 32 KB -> ONE slot, waited once -- the dense uniform.cu
+//   blk128: a K-tile or V-tile is exactly 32 KB -> ONE slot, waited once -- the dense uniform_inline.cu
 //     tile shape.
 //       K-tile: 1 KV block (128 tok) x 128 hd, both head-dim halves in one slot.
 //       V-tile: 128 hd x 128 tok, both token halves in one slot.

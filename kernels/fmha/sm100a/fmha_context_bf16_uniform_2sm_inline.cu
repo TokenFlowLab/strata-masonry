@@ -1,6 +1,6 @@
-// fmha_context_bf16_uniform_2sm.cu -- K2 FMHA context BF16, sm_100a.
+// fmha_context_bf16_uniform_2sm_inline.cu -- K2 FMHA context BF16, sm_100a.
 //
-// 2-CTA (cta_group::2) sibling of fmha_context_bf16_uniform.cu: same feature set
+// 2-CTA (cta_group::2) sibling of fmha_context_bf16_uniform_inline.cu: same feature set
 // (GQA/MHA via MHA; full/causal via IS_CAUSAL; USE_CLC / Q_RASTER scheduler), but a 2SM cluster
 // pairs two CTAs on one (sample, kv_head) with a joint 256-row cta_group::2 MMA.
 //
@@ -10,25 +10,20 @@
 // for the joint MMA), and each CTA masks its own rows with its own q_pos.
 //
 // GEN-shape variant. Warp-specialized 16-warp body + barrier contract are the SAME as
-// fmha_context_bf16_gqa_nonpersistent.cu (see its header for Terminology / Layout / flow / barriers).
+// fmha_context_bf16_uniform_inline.cu.
 //   - PERSISTENT: CLC / cluster-stride over work tiles (phase trackers persist).
 //   - TMA-store epilogue: valid only because full/equal-seqlen tiles are non-ragged (varlen kernels
 //     use a predicated STG re-tile instead).
 //
-// Barrier contract (additions to gqa_nonpersistent's -- unique to the TMA-sO epilogue):
+// Barrier contract (unique to the TMA-sO epilogue):
 //   - empty_bar_o_epi[m] (count 1): epi -> corr, "sO[m]'s TMA store drained, slot reusable" --
-//     see fmha_context_bf16_uniform.cu's header. Both peers run it (the padding peer's waits
+//     see fmha_context_bf16_uniform_inline.cu's header. Both peers run it (the padding peer's waits
 //     are no-ops).
 //
 // Budgets:
 //   - Registers: per-warp budgets sum to exactly the SM file (65536 = 128*512):
 //       softmax inc<176> (x8) + correction dec<88> (x4) + four single warps dec<72> (x4)
 //       = 32 * (8*176 + 4*88 + 4*72) = 32 * 2048 = 65536.
-//     This ladder differs from the BLOCK BASE fmha_context_bf16_uniform_2sm.cu, which really does
-//     run 192/80/48 (it passes SM_REG_BUDGET=192 / CORR_REG_BUDGET=80 / *_REG_BUDGET=48 to the
-//     blocks/*). Both ladders total 65536; this fork just shifts registers from the softmax warps
-//     to correction and the single warps. This header claimed the base's 192/80/48 until 2026-07-25
-//     -- if you are comparing the two kernels, read the setmaxnreg calls, not the prose.
 //     WARP_PROF: the softmax warp sits at its cap, so wp_begin/wp_end there can fault as an illegal
 //     instruction; raise the budget before profiling. (The old "single ~R26 / corr ~R77 / softmax
 //     ~R186" usage figures were measured under the 192/80/48 ladder and no longer apply -- ~R186

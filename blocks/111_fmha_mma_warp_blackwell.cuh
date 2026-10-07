@@ -1,7 +1,7 @@
 #pragma once
 #if defined(PL_AGENTIC_SM100A) || defined(PL_AGENTIC_SM103A)
 // 111_fmha_mma_warp_blackwell.cuh -- Blackwell tcgen05.mma driver warp for the
-// 1SM BF16 FMHA context kernel (kernels/fmha/sm100a/fmha_context_bf16_uniform.cu).
+// 1SM BF16 FMHA context kernel (kernels/fmha/sm100a/fmha_context_bf16_varlen.cu).
 //
 // ARCH: sm_100a
 //
@@ -590,7 +590,7 @@ void fmha_mma_warp_blackwell_1tile_2sm_bf16(WpCtx& wpc,
  * fmha_mma_warp_blackwell_ntiles_2sm_bf16<>(wpc, ...)
  *
  * Production __device__ body for the MMA warp of the 2SM (cta_group::2) FMHA
- * context kernel (fmha_context_bf16_uniform_2sm.cu). Kept SEPARATE from the 1SM
+ * context kernel. Kept SEPARATE from the 1SM
  * ntiles wrapper because the 2SM TMEM lifecycle has no 1SM analog: BOTH CTAs'
  * MMA warps run a cluster-collective tcgen05.alloc<2>; only the leader CTA
  * (peer 0) issues the cta_group::2 MMAs while peer 1 runs an idle CLC consumer

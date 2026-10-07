@@ -2,10 +2,8 @@
 
 | Implementation | Mode |
 |---|---|
-| [block_causal_sink_bf16.cu](block_causal_sink_bf16.cu) | blockwise, 1CTA |
-| [block_causal_sink_bf16_2sm.cu](block_causal_sink_bf16_2sm.cu) | blockwise, 2SM |
-| [block_causal_sink_bf16_tf.cu](block_causal_sink_bf16_tf.cu) | teacher forcing, 1CTA |
-| [block_causal_sink_bf16_tf_2sm.cu](block_causal_sink_bf16_tf_2sm.cu) | teacher forcing, 2SM |
+| [block_causal_sink_bf16.cu](block_causal_sink_bf16.cu) | blockwise |
+| [block_causal_sink_bf16_tf.cu](block_causal_sink_bf16_tf.cu) | teacher forcing |
 
 CPU reference: [block_causal_sink_bf16_cpu_verifier.py](block_causal_sink_bf16_cpu_verifier.py).
 Inputs: [block_causal_sink_bf16_gen_inputs.py](block_causal_sink_bf16_gen_inputs.py).
@@ -33,7 +31,7 @@ Performance grid, run blockwise and teacher forcing, each with and without `ROPE
 | Blockwise L | 8736, 17472, 26208, 52416, 104832 |
 | Teacher-forcing L | 17472, 34944, 52416, 104832, 209664 |
 
-Correctness cases (all four drivers, with and without RoPE):
+Correctness cases (both drivers, with and without RoPE):
 
 | HQ=HK | Tokens/frame | Frames/block | Frames | Sink frames | Local frames |
 |---:|---:|---:|---:|---:|---:|

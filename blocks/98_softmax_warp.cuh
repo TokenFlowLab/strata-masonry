@@ -50,7 +50,7 @@ void softmax_warp_block(const float* __restrict__ scores, int K,
 }
 
 // ============================================================================
-// Production FMHA softmax warp (kernels/fmha/sm100a/fmha_context_bf16_uniform.cu).
+// Production FMHA softmax warp (kernels/fmha/sm100a/fmha_context_bf16_varlen.cu).
 // One thread owns a whole K_TILE-key S row (lane-local rmax + rowsum, no cross-
 // lane reduction). Reads S from TMEM, masks the ragged/causal last tile, keeps a
 // running (m, l) online-softmax state, publishes alpha per K block via
