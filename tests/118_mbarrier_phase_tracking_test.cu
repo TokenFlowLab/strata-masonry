@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/118_mbarrier_phase_tracking.cuh"
+#include "../src/composites/118_mbarrier_phase_tracking.cuh"
 #include "118_mbarrier_phase_tracking.cuh"
 
 // =============================================================================

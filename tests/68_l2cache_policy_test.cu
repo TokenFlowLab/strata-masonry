@@ -16,7 +16,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/68_l2cache_policy.cuh"
+#include "../src/primitives/68_l2cache_policy.cuh"
 
 __global__ void k_build_policies(uint64_t* out) {
   if (threadIdx.x != 0) return;

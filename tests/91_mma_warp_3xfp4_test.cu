@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../blocks/91_mma_warp_3xfp4.cuh"
+#include "../src/blocks/91_mma_warp_3xfp4.cuh"
 
 #if !K_LOOP_3XFP4_DEPS_AVAILABLE
 

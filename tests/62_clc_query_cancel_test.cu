@@ -3,7 +3,7 @@
 // 62_clc_query_cancel_test.cu -- compile smoke for query_cancel.
 
 #include "test_utils.cuh"
-#include "../primitives/62_clc_query_cancel.cuh"
+#include "../src/primitives/62_clc_query_cancel.cuh"
 
 __global__ void k_q(uint32_t* out) {
   __shared__ __align__(16) uint32_t slot[4];

@@ -13,8 +13,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/35_fence_mbarrier_init.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/35_fence_mbarrier_init.cuh"
 #include "35_fence_mbarrier_init.cuh"
 
 // =============================================================================

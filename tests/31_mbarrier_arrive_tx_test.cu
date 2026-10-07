@@ -15,10 +15,10 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/31_mbarrier_arrive_tx.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/67_mapa.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/31_mbarrier_arrive_tx.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/67_mapa.cuh"
 #include "29_mbarrier_init.cuh"
 #include "31_mbarrier_arrive_tx.cuh"
 #include "33_mbarrier_try_wait.cuh"

@@ -34,15 +34,15 @@
 #include <cuda_runtime.h>
 #include <cuda_bf16.h>
 #include "test_utils.cuh"
-#include "../primitives/22_tma_store.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/25_tma_async_group.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/31_mbarrier_arrive_tx.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/34_fence_proxy_async.cuh"
-#include "../primitives/70_smem_ptr.cuh"
-#include "../primitives/73_tma_load_2d_gather4.cuh"
+#include "../src/primitives/22_tma_store.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/25_tma_async_group.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/31_mbarrier_arrive_tx.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/34_fence_proxy_async.cuh"
+#include "../src/primitives/70_smem_ptr.cuh"
+#include "../src/primitives/73_tma_load_2d_gather4.cuh"
 
 constexpr int R           = 16;
 constexpr int C           = 64;   // C * 2 = 128 bytes per row -> SWIZZLE_128B legal

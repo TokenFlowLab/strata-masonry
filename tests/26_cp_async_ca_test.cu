@@ -14,8 +14,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/26_cp_async_ca.cuh"
-#include "../primitives/28_cp_async_commit_wait.cuh"
+#include "../src/primitives/26_cp_async_ca.cuh"
+#include "../src/primitives/28_cp_async_commit_wait.cuh"
 #include "26_cp_async_ca.cuh"
 
 // =============================================================================

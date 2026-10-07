@@ -4,8 +4,8 @@
 // Wiring a real MMA chain is covered by the block kernels (#90).
 
 #include "test_utils.cuh"
-#include "../primitives/30_mbarrier_arrive.cuh"
-#include "../composites/121_k_loop_blackwell.cuh"
+#include "../src/primitives/30_mbarrier_arrive.cuh"
+#include "../src/composites/121_k_loop_blackwell.cuh"
 
 __global__ void __cluster_dims__(1, 1, 1) k() {
   __shared__ __align__(16) uint64_t full[2];

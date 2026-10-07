@@ -3,11 +3,11 @@
 // 61_clc_try_cancel_test.cu -- compile smoke + multicast::all runtime check.
 
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/31_mbarrier_arrive_tx.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/61_clc_try_cancel.cuh"
-#include "../primitives/67_mapa.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/31_mbarrier_arrive_tx.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/61_clc_try_cancel.cuh"
+#include "../src/primitives/67_mapa.cuh"
 
 __global__ void k_clc() {
   __shared__ __align__(16) uint8_t slot[16];

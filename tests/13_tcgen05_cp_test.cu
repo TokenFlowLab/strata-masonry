@@ -20,15 +20,15 @@
 // Issuer: warp 0, lane 0 issues the cp; the warp does the readback ld.
 
 #include "test_utils.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../primitives/9_tcgen05_ld.cuh"
-#include "../primitives/11_tcgen05_commit.cuh"
-#include "../primitives/12_tcgen05_wait.cuh"
-#include "../primitives/13_tcgen05_cp.cuh"
-#include "../primitives/42_smem_desc_blackwell.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/9_tcgen05_ld.cuh"
+#include "../src/primitives/11_tcgen05_commit.cuh"
+#include "../src/primitives/12_tcgen05_wait.cuh"
+#include "../src/primitives/13_tcgen05_cp.cuh"
+#include "../src/primitives/42_smem_desc_blackwell.cuh"
 
 enum class CpVariant {
   PLAIN_4X256B,

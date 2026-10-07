@@ -12,7 +12,7 @@
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include "test_utils.cuh"
-#include "../blocks/92_mma_warp_hopper.cuh"
+#include "../src/blocks/92_mma_warp_hopper.cuh"
 
 namespace block92 {
 static constexpr int TILE_M = 64;

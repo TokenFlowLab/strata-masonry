@@ -11,8 +11,8 @@
 // grep -E 'tcgen05.(alloc|commit|dealloc).cta_group::1'` should show 3 hits.
 
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../blocks/90_mma_warp_blackwell.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/blocks/90_mma_warp_blackwell.cuh"
 
 // __global__ wrapper -- owns SMEM slot + mbar. The .cuh exports the
 // commit/wait body as __device__ __forceinline__.

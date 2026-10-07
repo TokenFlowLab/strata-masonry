@@ -13,8 +13,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/52_red_async.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/52_red_async.cuh"
 #include "52_red_async.cuh"
 
 // =============================================================================

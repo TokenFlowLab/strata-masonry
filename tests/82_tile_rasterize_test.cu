@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/82_tile_rasterize.cuh"
+#include "../src/composites/82_tile_rasterize.cuh"
 #include <set>
 #include <utility>
 #include "82_tile_rasterize.cuh"

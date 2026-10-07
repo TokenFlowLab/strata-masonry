@@ -3,13 +3,13 @@
 // 86_acc_correction_test.cu -- scale a TMEM accumulator by 0.5 and verify.
 
 #include "test_utils.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../primitives/9_tcgen05_ld.cuh"
-#include "../primitives/10_tcgen05_st.cuh"
-#include "../primitives/12_tcgen05_wait.cuh"
-#include "../composites/86_acc_correction.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/9_tcgen05_ld.cuh"
+#include "../src/primitives/10_tcgen05_st.cuh"
+#include "../src/primitives/12_tcgen05_wait.cuh"
+#include "../src/composites/86_acc_correction.cuh"
 
 __global__ void k(float* out) {
   __shared__ __align__(16) uint32_t slot;

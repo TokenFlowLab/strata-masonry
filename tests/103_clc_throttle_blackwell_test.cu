@@ -10,7 +10,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/103_clc_throttle_blackwell.cuh"
+#include "../src/composites/103_clc_throttle_blackwell.cuh"
 
 constexpr int N_STAGES = 2;
 constexpr int N_TILES  = 6;

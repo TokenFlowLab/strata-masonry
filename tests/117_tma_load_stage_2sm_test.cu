@@ -3,10 +3,10 @@
 // 117_tma_load_stage_2sm_test.cu -- compile smoke for the 2SM stage wrapper.
 
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../composites/117_tma_load_stage_2sm.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/composites/117_tma_load_stage_2sm.cuh"
 
 __global__ void __cluster_dims__(2, 1, 1)
 k(const __grid_constant__ CUtensorMap ta) {

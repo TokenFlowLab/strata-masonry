@@ -20,7 +20,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/69_griddepcontrol.cuh"
+#include "../src/primitives/69_griddepcontrol.cuh"
 
 __global__ void prerequisite_kernel(uint32_t* sentinel) {
   if (threadIdx.x == 0 && blockIdx.x == 0) {

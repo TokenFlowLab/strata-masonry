@@ -3,8 +3,8 @@
 // 81_clc_scheduler_loop_test.cu -- compile smoke for clc_fetch_next_tile.
 
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../composites/81_clc_scheduler_loop.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/composites/81_clc_scheduler_loop.cuh"
 
 __global__ void k(uint32_t* out) {
   __shared__ __align__(16) uint32_t slot[4];

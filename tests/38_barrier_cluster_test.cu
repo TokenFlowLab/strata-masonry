@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/38_barrier_cluster.cuh"
+#include "../src/primitives/38_barrier_cluster.cuh"
 #include "38_barrier_cluster.cuh"
 
 // =============================================================================

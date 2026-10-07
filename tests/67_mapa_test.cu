@@ -15,8 +15,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/67_mapa.cuh"
-#include "../primitives/38_barrier_cluster.cuh"
+#include "../src/primitives/67_mapa.cuh"
+#include "../src/primitives/38_barrier_cluster.cuh"
 
 #if defined(PL_AGENTIC_SM90A) || defined(PL_AGENTIC_SM100A) || defined(PL_AGENTIC_SM103A)
 

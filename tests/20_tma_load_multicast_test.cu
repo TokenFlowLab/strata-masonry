@@ -13,12 +13,12 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/19_tma_load_2sm.cuh"
-#include "../primitives/20_tma_load_multicast.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/31_mbarrier_arrive_tx.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/19_tma_load_2sm.cuh"
+#include "../src/primitives/20_tma_load_multicast.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/31_mbarrier_arrive_tx.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
 #include <cuda_fp16.h>
 #include "20_tma_load_multicast.cuh"
 

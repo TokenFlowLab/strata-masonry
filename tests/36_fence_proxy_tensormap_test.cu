@@ -13,8 +13,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/36_fence_proxy_tensormap.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/36_fence_proxy_tensormap.cuh"
 #include "36_fence_proxy_tensormap.cuh"
 
 // =============================================================================

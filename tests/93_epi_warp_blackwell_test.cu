@@ -15,7 +15,7 @@
 // show all three.
 
 #include "test_utils.cuh"
-#include "../blocks/93_epi_warp_blackwell.cuh"
+#include "../src/blocks/93_epi_warp_blackwell.cuh"
 
 // __global__ wrapper -- owns SMEM (slot + smem_stage). The .cuh exports
 // the alloc / seed / cvt+stmatrix / dealloc body as __device__ __forceinline__.

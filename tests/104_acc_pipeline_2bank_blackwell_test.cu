@@ -19,7 +19,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/104_acc_pipeline_2bank_blackwell.cuh"
+#include "../src/composites/104_acc_pipeline_2bank_blackwell.cuh"
 
 // 2-CTA cluster, 256 threads/CTA. Warp 0 = producer (MMA proxy);
 // warp 4 = consumer leader (epi_tid==0 proxy). Other warps idle.

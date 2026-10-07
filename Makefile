@@ -8,8 +8,8 @@
 #   make all                  -- build (but do not run) every test binary
 #   make clean                -- remove build/ and .nvcc_tmp/
 #
-# blocks/ is a header-only subtree; each block's parametric kernel lives in
-# blocks/<N>_<name>.cuh and is exercised via tests/<N>_<name>_test.cu. There
+# src/blocks/ is a header-only subtree; each block's parametric kernel lives in
+# src/blocks/<N>_<name>.cuh and is exercised via tests/<N>_<name>_test.cu. There
 # are no standalone block binaries.
 #
 # Test arch is determined by a "// ARCH: sm_XXXa" comment within the first
@@ -21,7 +21,7 @@ NVCC  ?= nvcc
 
 CUTLASS_DIR := ../../dynamic-kernel-generator/cutlass
 CXXFLAGS := -O3 -std=c++17 --expt-relaxed-constexpr --extended-lambda -DNDEBUG -lineinfo \
-            -I primitives -I composites -I blocks -I tests \
+            -I src/primitives -I src/composites -I src/blocks -I tests \
             -I $(CUTLASS_DIR)/include -I $(CUTLASS_DIR)/tools/util/include
 LDFLAGS  := -lcuda -lcublas
 EXTRA_CXXFLAGS ?=
@@ -183,9 +183,9 @@ tests_sm90a: $(addprefix $(BUILDDIR)/,$(SM90A_TESTS))
 	  [ $$failed -eq 0 ]
 
 # ============================================================================
-# kernels/ -- end-to-end kernel programs.
+# src/kernels/ -- end-to-end kernel programs.
 #
-# Layout: kernels/<family>/<arch>/<name>.cu, one end-to-end .cu per
+# Layout: src/kernels/<family>/<arch>/<name>.cu, one end-to-end .cu per
 # kernel (kernel + driver + verify + bench + main). Output binary
 # build/kernel_<arch>_<name>.
 #
@@ -196,11 +196,11 @@ tests_sm90a: $(addprefix $(BUILDDIR)/,$(SM90A_TESTS))
 # ============================================================================
 
 # Default-empty so missing dirs don't break the wildcard. Kernels are
-# organized under kernels/<family>/<arch>/ where <family> is gemm,
-# fmha, grouped_gemm, etc.
-KERNELS_SM100A := $(wildcard kernels/*/sm100a/*.cu) $(wildcard kernels/*/sm100a/nvfp4/*.cu) $(wildcard kernels/*/sm100a/backward/*.cu)
-KERNELS_SM103A := $(wildcard kernels/*/sm103a/*.cu)
-KERNELS_SM90A  := $(wildcard kernels/*/sm90a/*.cu)
+# organized under src/kernels/<family>/<arch>/ where <family> is gemm,
+# fmha, fmha_sparse, etc.
+KERNELS_SM100A := $(wildcard src/kernels/*/sm100a/*.cu) $(wildcard src/kernels/*/sm100a/nvfp4/*.cu) $(wildcard src/kernels/*/sm100a/backward/*.cu)
+KERNELS_SM103A := $(wildcard src/kernels/*/sm103a/*.cu)
+KERNELS_SM90A  := $(wildcard src/kernels/*/sm90a/*.cu)
 
 # Active set per NATIVE_ARCH.
 ifeq ($(NATIVE_ARCH),sm_90a)
@@ -237,7 +237,7 @@ $(KERNEL_NAMES): %: $(BUILDDIR)/%
 $(KERNEL_BUILDS): %_build: $(BUILDDIR)/%
 	@echo "[build OK] $<"
 
-# Resolve kernel_<arch>_<name> back to its source under kernels/*/<arch>/.
+# Resolve kernel_<arch>_<name> back to its source under src/kernels/*/<arch>/.
 vpath %.cu $(sort $(dir $(ACTIVE_KERNELS)))
 
 # Per-kernel build rule. Compiles with NATIVE_ARCH only (kernels are

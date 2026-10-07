@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/45_shfl_sync.cuh"
+#include "../src/primitives/45_shfl_sync.cuh"
 #include "45_shfl_sync.cuh"
 
 // =============================================================================

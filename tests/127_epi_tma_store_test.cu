@@ -13,8 +13,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../composites/127_epi_tma_store.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/composites/127_epi_tma_store.cuh"
 #include <cuda_fp16.h>
 #include "23_tma_tensormap.cuh"
 #include "25_tma_async_group.cuh"

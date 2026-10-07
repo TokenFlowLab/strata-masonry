@@ -14,7 +14,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/37_bar_sync.cuh"
+#include "../src/primitives/37_bar_sync.cuh"
 #include "37_bar_sync.cuh"
 
 // =============================================================================

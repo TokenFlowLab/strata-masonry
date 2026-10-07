@@ -5,8 +5,8 @@
 // eventually hang or fault.
 
 #include "test_utils.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
 
 __global__ void k_alloc_dealloc_loop(uint32_t iters, uint32_t n_cols,
                                      uint32_t* out_last_base) {

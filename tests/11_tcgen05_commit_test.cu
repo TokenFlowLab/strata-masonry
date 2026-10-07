@@ -5,11 +5,11 @@
 // mbarrier, verify the phase flipped.
 
 #include "test_utils.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../primitives/11_tcgen05_commit.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/11_tcgen05_commit.cuh"
 
 __global__ void k_commit(int* out) {
   __shared__ __align__(16) uint32_t slot;

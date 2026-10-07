@@ -3,7 +3,7 @@
 // 49_redux_sync_f32_test.cu -- max[0..31] via redux.sync.max.f32.
 
 #include "test_utils.cuh"
-#include "../primitives/49_redux_sync_f32.cuh"
+#include "../src/primitives/49_redux_sync_f32.cuh"
 
 __global__ void k_f32(float* out) {
   float v = (float)threadIdx.x * 0.5f;

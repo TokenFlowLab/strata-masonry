@@ -14,7 +14,7 @@
 // should show 6 hits (3 variants x 2 cta_groups).
 
 #include "test_utils.cuh"
-#include "../primitives/6_tcgen05_mma_fp4_k96.cuh"
+#include "../src/primitives/6_tcgen05_mma_fp4_k96.cuh"
 
 // Stub kernels that issue every MMA variant exactly once. ISA forbids mixing
 // cta_group::1 and ::2 in the same kernel, so we split them. The addresses

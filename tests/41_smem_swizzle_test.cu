@@ -14,7 +14,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/41_smem_swizzle.cuh"
+#include "../src/primitives/41_smem_swizzle.cuh"
 #include <set>
 #include "41_smem_swizzle.cuh"
 

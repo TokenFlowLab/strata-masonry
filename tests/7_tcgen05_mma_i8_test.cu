@@ -15,13 +15,13 @@
 // grep -E 'tcgen05.mma.cta_group::1.kind::i8'` should show the issue.
 
 #include "test_utils.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../primitives/7_tcgen05_mma_i8.cuh"
-#include "../primitives/8_tcgen05_mma_idesc.cuh"
-#include "../primitives/11_tcgen05_commit.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/7_tcgen05_mma_i8.cuh"
+#include "../src/primitives/8_tcgen05_mma_idesc.cuh"
+#include "../src/primitives/11_tcgen05_commit.cuh"
 
 __global__ void k_i8() {
   __shared__ __align__(16)   uint32_t tmem_base_slot;

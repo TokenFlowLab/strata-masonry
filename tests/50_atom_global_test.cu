@@ -14,7 +14,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/50_atom_global.cuh"
+#include "../src/primitives/50_atom_global.cuh"
 #include "50_atom_global.cuh"
 
 // =============================================================================

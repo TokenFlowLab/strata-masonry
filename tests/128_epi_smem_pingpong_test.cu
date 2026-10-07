@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/128_epi_smem_pingpong.cuh"
+#include "../src/composites/128_epi_smem_pingpong.cuh"
 #include <cuda_fp16.h>
 #include "22_tma_store.cuh"
 #include "23_tma_tensormap.cuh"

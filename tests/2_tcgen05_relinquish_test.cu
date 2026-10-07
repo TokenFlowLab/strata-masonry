@@ -5,9 +5,9 @@
 // would be undefined) -- we only verify that relinquish+dealloc succeed.
 
 #include "test_utils.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
 
 __global__ void k_alloc_relinquish_dealloc(uint32_t n_cols, uint32_t* out_base) {
   __shared__ uint32_t smem_base;

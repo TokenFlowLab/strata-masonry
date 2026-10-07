@@ -15,7 +15,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../blocks/95_sched_warp_blockidx.cuh"
+#include "../src/blocks/95_sched_warp_blockidx.cuh"
 
 __global__ void sched_warp_blockidx_test_kernel(int tiles_m, int tiles_n,
                                                 int2* out) {

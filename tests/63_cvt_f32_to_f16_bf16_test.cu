@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/63_cvt_f32_to_f16_bf16.cuh"
+#include "../src/primitives/63_cvt_f32_to_f16_bf16.cuh"
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 #include "63_cvt_f32_to_f16_bf16.cuh"

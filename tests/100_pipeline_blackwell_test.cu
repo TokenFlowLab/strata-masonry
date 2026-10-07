@@ -9,7 +9,7 @@
 // without hanging across N tiles + cluster sync + tcgen05 alloc/dealloc."
 
 #include "test_utils.cuh"
-#include "../blocks/100_pipeline_blackwell.cuh"
+#include "../src/blocks/100_pipeline_blackwell.cuh"
 
 int main() {
   // 4 mainloop stages; CLC dispatches NUM_TILES tiles to each cluster.

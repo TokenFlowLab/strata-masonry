@@ -7,7 +7,7 @@
 // (m, l) to GMEM. Block does not allocate state itself.
 
 #include "test_utils.cuh"
-#include "../blocks/98_softmax_warp.cuh"
+#include "../src/blocks/98_softmax_warp.cuh"
 
 __global__ void softmax_warp_test_kernel(const float* __restrict__ scores,
                                          int K,

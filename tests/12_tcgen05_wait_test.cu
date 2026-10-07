@@ -5,7 +5,7 @@
 // by the ld/st round-trip (#9, #10); this is the standalone compile smoke.
 
 #include "test_utils.cuh"
-#include "../primitives/12_tcgen05_wait.cuh"
+#include "../src/primitives/12_tcgen05_wait.cuh"
 
 __global__ void k_wait() {
   // No prior ld/st -- waits are vacuous and return immediately.

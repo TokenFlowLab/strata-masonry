@@ -16,7 +16,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/39_ldmatrix.cuh"
+#include "../src/primitives/39_ldmatrix.cuh"
 #include <cuda_fp16.h>
 #include "39_ldmatrix.cuh"
 #include "40_stmatrix.cuh"

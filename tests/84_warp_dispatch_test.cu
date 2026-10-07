@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/84_warp_dispatch.cuh"
+#include "../src/composites/84_warp_dispatch.cuh"
 #include "84_warp_dispatch.cuh"
 
 // =============================================================================

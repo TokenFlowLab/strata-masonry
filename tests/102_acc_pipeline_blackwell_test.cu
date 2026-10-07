@@ -15,7 +15,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/102_acc_pipeline_blackwell.cuh"
+#include "../src/composites/102_acc_pipeline_blackwell.cuh"
 
 // 2-CTA cluster, 256 threads/CTA. Warp 0 = producer (MMA proxy);
 // warps 4-7 = consumer (epi proxy, 128 threads/CTA -> 256/cluster).

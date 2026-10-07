@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/83_grouped_gemm_tile_map.cuh"
+#include "../src/composites/83_grouped_gemm_tile_map.cuh"
 #include "83_grouped_gemm_tile_map.cuh"
 
 // =============================================================================

@@ -12,11 +12,11 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/30_mbarrier_arrive.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/35_fence_mbarrier_init.cuh"
-#include "../primitives/114_fence_acq_rel.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/30_mbarrier_arrive.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/35_fence_mbarrier_init.cuh"
+#include "../src/primitives/114_fence_acq_rel.cuh"
 
 __global__ void k_fence_compile() {
   fence_acq_rel_cta();

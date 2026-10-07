@@ -5,7 +5,7 @@
 // execute without error.
 
 #include "test_utils.cuh"
-#include "../primitives/15_tcgen05_fence.cuh"
+#include "../src/primitives/15_tcgen05_fence.cuh"
 
 __global__ void k_fence() {
   tcgen05_fence_before_thread_sync();

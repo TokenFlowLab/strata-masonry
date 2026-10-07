@@ -24,13 +24,13 @@
 // should show both the seed-store and the read-back.
 
 #include "test_utils.cuh"
-#include "../blocks/99_correction_warp.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../primitives/9_tcgen05_ld.cuh"
-#include "../primitives/10_tcgen05_st.cuh"
-#include "../primitives/12_tcgen05_wait.cuh"
+#include "../src/blocks/99_correction_warp.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/9_tcgen05_ld.cuh"
+#include "../src/primitives/10_tcgen05_st.cuh"
+#include "../src/primitives/12_tcgen05_wait.cuh"
 
 __device__ __forceinline__
 static uint32_t bb_smem_ptr_u32_99_test(const void* p) {

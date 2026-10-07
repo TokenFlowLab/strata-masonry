@@ -13,7 +13,7 @@
 // mnemonics.
 
 #include "test_utils.cuh"
-#include "../composites/124_k_loop_3xfp4.cuh"
+#include "../src/composites/124_k_loop_3xfp4.cuh"
 
 #if K_LOOP_3XFP4_DEPS_AVAILABLE
 

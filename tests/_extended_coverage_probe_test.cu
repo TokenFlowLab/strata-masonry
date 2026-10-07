@@ -30,10 +30,10 @@
 // Issuer: not applicable (probe is build-only).
 
 #include "test_utils.cuh"
-#include "../primitives/3_tcgen05_mma_f16.cuh"
-#include "../primitives/4_tcgen05_mma_fp8.cuh"
-#include "../primitives/5_tcgen05_mma_fp4.cuh"
-#include "../primitives/7_tcgen05_mma_i8.cuh"
+#include "../src/primitives/3_tcgen05_mma_f16.cuh"
+#include "../src/primitives/4_tcgen05_mma_fp8.cuh"
+#include "../src/primitives/5_tcgen05_mma_fp4.cuh"
+#include "../src/primitives/7_tcgen05_mma_i8.cuh"
 
 // =============================================================================
 // 2SM probe -- cta_group::2 wrappers (block-level-validated by #88 / #100).

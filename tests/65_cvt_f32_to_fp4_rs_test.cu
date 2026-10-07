@@ -4,7 +4,7 @@
 // cannot carry, so each packed output must equal its exact encoding (a in the upper bits).
 
 #include "test_utils.cuh"
-#include "../primitives/65_cvt_f32_to_fp4_rs.cuh"
+#include "../src/primitives/65_cvt_f32_to_fp4_rs.cuh"
 
 __global__ void k_convert_all(uint16_t* out_e2m1,
                               uint32_t* out_e4m3,

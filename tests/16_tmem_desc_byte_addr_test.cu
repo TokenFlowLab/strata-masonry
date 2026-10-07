@@ -8,7 +8,7 @@
 // Cross-checks the device build against a host reference.
 
 #include "test_utils.cuh"
-#include "../primitives/16_tmem_desc_byte_addr.cuh"
+#include "../src/primitives/16_tmem_desc_byte_addr.cuh"
 
 __global__ void k_build(uint64_t* out,
                         uint32_t start, uint32_t next, int stride)

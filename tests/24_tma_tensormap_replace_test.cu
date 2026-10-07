@@ -13,9 +13,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/24_tma_tensormap_replace.cuh"
-#include "../primitives/36_fence_proxy_tensormap.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/24_tma_tensormap_replace.cuh"
+#include "../src/primitives/36_fence_proxy_tensormap.cuh"
 #include <cuda_fp16.h>
 #include "18_tma_load.cuh"
 #include "22_tma_store.cuh"

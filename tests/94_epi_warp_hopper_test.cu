@@ -15,7 +15,7 @@
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 #include "test_utils.cuh"
-#include "../blocks/94_epi_warp_hopper.cuh"
+#include "../src/blocks/94_epi_warp_hopper.cuh"
 
 namespace block94 {
 static constexpr int EPI_M = 16;

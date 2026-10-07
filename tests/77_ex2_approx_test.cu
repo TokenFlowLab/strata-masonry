@@ -16,7 +16,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/77_ex2_approx.cuh"
+#include "../src/primitives/77_ex2_approx.cuh"
 
 __global__ void k_ex2(const float* in, int n, float* hw, float* emu) {
   int t = threadIdx.x;

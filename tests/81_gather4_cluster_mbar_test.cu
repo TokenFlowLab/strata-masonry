@@ -19,16 +19,16 @@
 
 #include "test_utils.cuh"
 
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/30_mbarrier_arrive.cuh"
-#include "../primitives/31_mbarrier_arrive_tx.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../primitives/35_fence_mbarrier_init.cuh"
-#include "../primitives/38_barrier_cluster.cuh"
-#include "../primitives/70_smem_ptr.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/30_mbarrier_arrive.cuh"
+#include "../src/primitives/31_mbarrier_arrive_tx.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/primitives/35_fence_mbarrier_init.cuh"
+#include "../src/primitives/38_barrier_cluster.cuh"
+#include "../src/primitives/70_smem_ptr.cuh"
 
-#include "../primitives/73_tma_load_2d_gather4.cuh"
+#include "../src/primitives/73_tma_load_2d_gather4.cuh"
 
 constexpr int R = 32;             // rows in A
 constexpr int C = 32;             // cols in A (BF16)

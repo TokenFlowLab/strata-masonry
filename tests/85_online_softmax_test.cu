@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/85_online_softmax.cuh"
+#include "../src/composites/85_online_softmax.cuh"
 #include "85_online_softmax.cuh"
 
 // =============================================================================

@@ -8,7 +8,7 @@
 // circular_phase_to_desc_index.
 
 #include "test_utils.cuh"
-#include "../primitives/17_smem_desc_circular.cuh"
+#include "../src/primitives/17_smem_desc_circular.cuh"
 
 __global__ void k_build_set(uint64_t out[3],
                             uint32_t b0, uint32_t b1, uint32_t b2, int stride)

@@ -17,7 +17,7 @@
 // 9.7.18.4.2 Tables 54 and 55.
 
 #include "test_utils.cuh"
-#include "../primitives/8_tcgen05_mma_idesc.cuh"
+#include "../src/primitives/8_tcgen05_mma_idesc.cuh"
 
 // Compute expected idesc by hand per PTX 9.7.18.4.2 Table 53.
 static uint32_t expected_table44(

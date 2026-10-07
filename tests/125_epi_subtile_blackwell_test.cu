@@ -4,10 +4,10 @@
 // to MMA; covered by block #93).
 
 #include "test_utils.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../composites/125_epi_subtile_blackwell.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/composites/125_epi_subtile_blackwell.cuh"
 
 __global__ void k() {
   __shared__ __align__(16)   uint32_t slot;

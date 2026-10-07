@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/64_cvt_f32_to_fp8.cuh"
+#include "../src/primitives/64_cvt_f32_to_fp8.cuh"
 #include <cuda_fp8.h>
 #include "64_cvt_f32_to_fp8.cuh"
 

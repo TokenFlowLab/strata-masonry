@@ -13,8 +13,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/21_tma_load_prefetch.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/21_tma_load_prefetch.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
 #include <cuda_fp16.h>
 #include "18_tma_load.cuh"
 #include "21_tma_load_prefetch.cuh"

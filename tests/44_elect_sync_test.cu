@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/44_elect_sync.cuh"
+#include "../src/primitives/44_elect_sync.cuh"
 #include "44_elect_sync.cuh"
 
 // =============================================================================

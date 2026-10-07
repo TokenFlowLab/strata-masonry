@@ -24,9 +24,9 @@
 // role works (full_bar is signaled, TMA delivers bytes to peer SMEM).
 
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/68_l2cache_policy.cuh"
-#include "../blocks/88_load_warp_blackwell.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/68_l2cache_policy.cuh"
+#include "../src/blocks/88_load_warp_blackwell.cuh"
 
 // ============================================================================
 // Test 1: load_warp_blackwell_block<NUM_STAGES, TILE_FLOATS>.

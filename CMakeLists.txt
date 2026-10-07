@@ -33,8 +33,8 @@ function(add_cuda_binary target source)
     CUDA_ARCHITECTURES OFF
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
   target_include_directories(${target} PRIVATE
-    ${PROJECT_SOURCE_DIR}/primitives ${PROJECT_SOURCE_DIR}/composites
-    ${PROJECT_SOURCE_DIR}/blocks ${PROJECT_SOURCE_DIR}/tests)
+    ${PROJECT_SOURCE_DIR}/src/primitives ${PROJECT_SOURCE_DIR}/src/composites
+    ${PROJECT_SOURCE_DIR}/src/blocks ${PROJECT_SOURCE_DIR}/tests)
   target_compile_definitions(${target} PRIVATE
     ${API_DEF} NDEBUG PL_REF_CACHE_DIR="${REF_CACHE_DIR}")
   list(GET ccs -1 ptx_cc)
@@ -101,12 +101,12 @@ if(BUILD_TESTS)
   endforeach()
 endif()
 
-# Kernels: kernels/<family>/<arch>/{,nvfp4/,backward/}*.cu -> kernel_<arch>_<name>, native arch only.
+# Kernels: src/kernels/<family>/<arch>/{,nvfp4/,backward/}*.cu -> kernel_<arch>_<name>, native arch only.
 if(BUILD_KERNELS)
   file(GLOB kernel_sources CONFIGURE_DEPENDS
-    ${PROJECT_SOURCE_DIR}/kernels/*/${ARCH_TAG}/*.cu
-    ${PROJECT_SOURCE_DIR}/kernels/*/${ARCH_TAG}/nvfp4/*.cu
-    ${PROJECT_SOURCE_DIR}/kernels/*/${ARCH_TAG}/backward/*.cu)
+    ${PROJECT_SOURCE_DIR}/src/kernels/*/${ARCH_TAG}/*.cu
+    ${PROJECT_SOURCE_DIR}/src/kernels/*/${ARCH_TAG}/nvfp4/*.cu
+    ${PROJECT_SOURCE_DIR}/src/kernels/*/${ARCH_TAG}/backward/*.cu)
   foreach(source IN LISTS kernel_sources)
     get_filename_component(name ${source} NAME_WE)
     add_cuda_binary(kernel_${ARCH_TAG}_${name} ${source} ${NATIVE_CC})

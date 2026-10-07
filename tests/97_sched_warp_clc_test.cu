@@ -14,7 +14,7 @@
 // grep -E 'clusterlaunchcontrol.try_cancel'` should show one issue.
 
 #include "test_utils.cuh"
-#include "../blocks/97_sched_warp_clc.cuh"
+#include "../src/blocks/97_sched_warp_clc.cuh"
 
 // __global__ wrapper -- owns SMEM (slot[4] + mbar). The .cuh exports the
 // CLC try_cancel + wait + query body as __device__ __forceinline__.

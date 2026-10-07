@@ -22,11 +22,11 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/74_tma_store_2d_scatter4.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/25_tma_async_group.cuh"
-#include "../primitives/34_fence_proxy_async.cuh"
-#include "../primitives/70_smem_ptr.cuh"
+#include "../src/primitives/74_tma_store_2d_scatter4.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/25_tma_async_group.cuh"
+#include "../src/primitives/34_fence_proxy_async.cuh"
+#include "../src/primitives/70_smem_ptr.cuh"
 
 constexpr int R = 16;
 constexpr int C = 16;

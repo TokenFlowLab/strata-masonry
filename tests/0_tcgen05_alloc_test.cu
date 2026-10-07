@@ -5,8 +5,8 @@
 // returned address encodes lane=0 (top 16 bits).
 
 #include "test_utils.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
 
 __global__ void k_alloc(uint32_t* out_base, uint32_t n_cols) {
   __shared__ uint32_t smem_base;

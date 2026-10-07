@@ -13,7 +13,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../composites/87_smem_layout_atoms.cuh"
+#include "../src/composites/87_smem_layout_atoms.cuh"
 #include "87_smem_layout_atoms.cuh"
 
 // =============================================================================

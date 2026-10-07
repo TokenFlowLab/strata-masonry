@@ -14,7 +14,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/34_fence_proxy_async.cuh"
+#include "../src/primitives/34_fence_proxy_async.cuh"
 #include "34_fence_proxy_async.cuh"
 
 // =============================================================================

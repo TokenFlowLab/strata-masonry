@@ -5,12 +5,12 @@
 #include <algorithm>
 #include <vector>
 #include "test_utils.cuh"
-#include "../primitives/0_tcgen05_alloc.cuh"
-#include "../primitives/1_tcgen05_dealloc.cuh"
-#include "../primitives/2_tcgen05_relinquish.cuh"
-#include "../primitives/10_tcgen05_st.cuh"
-#include "../primitives/12_tcgen05_wait.cuh"
-#include "../primitives/66_tcgen05_ld_red.cuh"
+#include "../src/primitives/0_tcgen05_alloc.cuh"
+#include "../src/primitives/1_tcgen05_dealloc.cuh"
+#include "../src/primitives/2_tcgen05_relinquish.cuh"
+#include "../src/primitives/10_tcgen05_st.cuh"
+#include "../src/primitives/12_tcgen05_wait.cuh"
+#include "../src/primitives/66_tcgen05_ld_red.cuh"
 
 constexpr int THREADS = 32;
 constexpr int TMEM_COLUMNS = 256;

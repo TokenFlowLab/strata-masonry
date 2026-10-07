@@ -13,10 +13,10 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
-#include "../primitives/29_mbarrier_init.cuh"
-#include "../primitives/33_mbarrier_try_wait.cuh"
-#include "../composites/116_tma_load_stage.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/29_mbarrier_init.cuh"
+#include "../src/primitives/33_mbarrier_try_wait.cuh"
+#include "../src/composites/116_tma_load_stage.cuh"
 #include <cuda_fp16.h>
 #include "18_tma_load.cuh"
 #include "22_tma_store.cuh"

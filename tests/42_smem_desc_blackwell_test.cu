@@ -4,7 +4,7 @@
 // the Blackwell SMEM descriptor builder.
 
 #include "test_utils.cuh"
-#include "../primitives/42_smem_desc_blackwell.cuh"
+#include "../src/primitives/42_smem_desc_blackwell.cuh"
 
 // Verify all 5 swizzle modes encode into bits [61:64) of the descriptor
 // per PTX 9.7.18.4.1 Table 51:

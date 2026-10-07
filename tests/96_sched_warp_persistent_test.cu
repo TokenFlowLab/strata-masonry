@@ -14,7 +14,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../blocks/96_sched_warp_persistent.cuh"
+#include "../src/blocks/96_sched_warp_persistent.cuh"
 
 __global__ void sched_warp_persistent_test_kernel(
     int total_tiles, int tiles_m, int tiles_n,

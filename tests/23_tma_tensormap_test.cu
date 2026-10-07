@@ -15,7 +15,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "test_utils.cuh"
-#include "../primitives/23_tma_tensormap.cuh"
+#include "../src/primitives/23_tma_tensormap.cuh"
 #include <cuda_fp16.h>
 #include "23_tma_tensormap.cuh"
 

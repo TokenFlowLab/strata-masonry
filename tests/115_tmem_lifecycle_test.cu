@@ -3,7 +3,7 @@
 // 115_tmem_lifecycle_test.cu -- alloc / use / dealloc round-trip.
 
 #include "test_utils.cuh"
-#include "../composites/115_tmem_lifecycle.cuh"
+#include "../src/composites/115_tmem_lifecycle.cuh"
 
 __global__ void k_life(uint32_t* out) {
   __shared__ __align__(16) uint32_t slot;
