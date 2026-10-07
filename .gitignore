@@ -1,0 +1,16 @@
+build/
+.nvcc_tmp/
+verify_cache/
+__pycache__/
+*.npy
+*.f32
+*.bf16
+*.ncu-rep
+*.nsys-rep
+*.sqlite
+*.cubin
+*.sass
+warp_raw_*.bin.gz
+warp_trace_*.json.gz
+.venv*/
+*.swp
